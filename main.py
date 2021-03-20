@@ -19,7 +19,6 @@ from a2c_ppo_acktr.model import Policy
 from a2c_ppo_acktr.storage import RolloutStorage
 from evaluation import evaluate
 
-
 def main():
     args = get_args()
 
@@ -40,6 +39,7 @@ def main():
 
     envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, device, False)
+    print(envs.observation_space.shape)
 
     actor_critic = Policy(
         envs.observation_space.shape,
@@ -103,7 +103,6 @@ def main():
     num_updates = int(
         args.num_env_steps) // args.num_steps // args.num_processes
     for j in range(num_updates):
-
         if args.use_linear_lr_decay:
             # decrease learning rate linearly
             utils.update_linear_schedule(

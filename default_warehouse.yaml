@@ -1,0 +1,77 @@
+parameters:
+    # Common hyperparameters
+    name: 'InfluenceNet_warehouse'
+    env_type: 'warehouse'
+    time_horizon: 8
+    # MAIN MODEL
+    # Fully connected module
+    fully_connected: true
+    num_fc_layers: 2
+    num_fc_units: [576, 256]
+    # Convolutional module
+    convolutional: false
+    # Recurrent module
+    recurrent: false
+
+    # INFLUENCE MODEL
+    influence: true
+    # Attention
+    attention: false
+    automatic_dpatch: false
+    manual_dpatch: true
+    # D-set
+    inf_num_predictors: 25
+    dset: [0, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
+           63, 64, 65, 66, 67, 68, 69, 70, 71, 72]
+    inf_num_rec_units: 64
+    inf_seq_len: 8    
+    
+    # default
+    # Common hyperparameters
+    mode: 'train'
+    load: false
+#    name: 'FNN_warehouse'
+    algorithm: PPO
+    port: 8000
+    gui: false
+#    env_type: 'warehouse'
+    scene: ''
+    flicker: false
+    max_steps: 4.0e+6
+    max_episode_steps: 5.0e+3
+    num_frames: 1
+    num_epoch: 3
+    gamma: 0.99
+    lambda: 0.95
+    learning_rate: 2.5e-4
+    batch_size: 32
+    memory_size: 128
+    train_frequency: 1
+    save_frequency: 1.0e+5
+    summary_frequency: 1.0e+5
+    tensorboard: true
+    iteration: -1
+    episode: 0
+    obs_type: 'vector'
+    obs_size: 73
+    num_workers: 8
+    beta: 1.0e-2
+    epsilon: 0.1
+#    time_horizon: 128
+    c1: 1
+
+
+    # MAIN MODEL
+    # Fully connected module
+#    fully_connected: true
+#    num_fc_layers: 2
+#    num_fc_units: [256, 128]
+    # Convolutional module
+#    convolutional: false
+    # Recurrent module
+#    recurrent: false
+    num_rec_units: 128
+    seq_len: 8
+
+    # INFLUENCE MODEL
+#    influence: false

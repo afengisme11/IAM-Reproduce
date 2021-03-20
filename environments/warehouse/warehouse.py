@@ -4,6 +4,7 @@ from environments.warehouse.utils import *
 import numpy as np
 import copy
 import random
+import gym
 from gym import spaces
 import time
 import matplotlib.pyplot as plt
@@ -11,7 +12,7 @@ import matplotlib.patches as patches
 import networkx as nx
 import csv
 
-class Warehouse(object):
+class Warehouse(gym.Env):
     """
     warehouse environment
     """
@@ -84,11 +85,16 @@ class Warehouse(object):
         done = (self.max_episode_length <= self.episode_length)
         if self.render_bool:
             self.render(self.render_delay)
-        return obs, reward, done, []
+        return obs, reward, done, {}
 
     @property
     def observation_space(self):
-        return None
+        # MODIFIED
+        obs_dim = self.n_rows * self.n_columns + \
+                        2 * (self.n_columns - 1) + 2 * (self.n_columns - 1)
+        # observation_space = spaces.MultiBinary(obs_dim)
+        observation_space = spaces.Box(0, 1, shape=(obs_dim,), dtype=np.float32)
+        return observation_space
 
     @property
     def action_space(self):
@@ -96,10 +102,12 @@ class Warehouse(object):
         Returns A gym dict containing the number of action choices for all the
         agents in the environment
         """
+        # MODIFIED
         n_actions = spaces.Discrete(len(self.ACTIONS))
-        action_dict = {robot.get_id:n_actions for robot in self.robots}
-        action_space = spaces.Dict(action_dict)
-        action_space.n = 4
+        # action_dict = {robot.get_id:n_actions for robot in self.robots}
+        # action_space = spaces.Dict(action_dict)
+        # action_space.n = 4
+        action_space = n_actions
         return action_space
 
     def render(self, delay=0.0):

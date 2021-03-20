@@ -16,6 +16,8 @@ from stable_baselines3.common.vec_env import (DummyVecEnv, SubprocVecEnv,
 from stable_baselines3.common.vec_env.vec_normalize import \
     VecNormalize as VecNormalize_
 
+from environments.warehouse.warehouse import Warehouse
+
 try:
     import dmc2gym
 except ImportError:
@@ -34,12 +36,14 @@ except ImportError:
 
 def make_env(env_id, seed, rank, log_dir, allow_early_resets):
     def _thunk():
-        if env_id.startswith("dm"):
-            _, domain, task = env_id.split('.')
-            env = dmc2gym.make(domain_name=domain, task_name=task)
-            env = ClipAction(env)
-        else:
-            env = gym.make(env_id)
+        # if env_id.startswith("dm"):
+        #     _, domain, task = env_id.split('.')
+        #     env = dmc2gym.make(domain_name=domain, task_name=task)
+        #     env = ClipAction(env)
+        # else:
+        #     env = gym.make(env_id)
+        parameters = dict(num_frames=1)
+        env = Warehouse(seed, parameters)
 
         is_atari = hasattr(gym.envs, 'atari') and isinstance(
             env.unwrapped, gym.envs.atari.atari_env.AtariEnv)
