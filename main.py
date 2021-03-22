@@ -15,7 +15,8 @@ from a2c_ppo_acktr import algo, utils
 from a2c_ppo_acktr.algo import gail
 from a2c_ppo_acktr.arguments import get_args
 from a2c_ppo_acktr.envs import make_vec_envs
-from a2c_ppo_acktr.model import Policy
+# from a2c_ppo_acktr.model import Policy
+from a2c_ppo_acktr.model_IAM import Policy
 from a2c_ppo_acktr.storage import RolloutStorage
 from evaluation import evaluate
 
@@ -110,6 +111,7 @@ def main():
                 agent.optimizer.lr if args.algo == "acktr" else args.lr)
 
         for step in range(args.num_steps):
+            envs.render()
             # Sample actions
             with torch.no_grad():
                 value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
