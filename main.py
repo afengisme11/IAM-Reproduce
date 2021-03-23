@@ -20,6 +20,8 @@ from a2c_ppo_acktr.IAMModel import IAMPolicy
 from a2c_ppo_acktr.storage import RolloutStorage
 from evaluation import evaluate
 
+import pickle
+
 """
     NOTE:
     Default arguments overview:
@@ -34,6 +36,7 @@ from evaluation import evaluate
 
     So default: 
         num_env_steps 10,000,000 = 125,000 episodes x 5 steps x 16 processes simultaneously
+    For the paper we specify the num_env_steps as 4,000,000 and num-steps as 10
 """
 def main():
     args = get_args()
@@ -117,6 +120,10 @@ def main():
     rollouts.to(device)
 
     episode_rewards = deque(maxlen=10)
+    # ADDED: 
+    # Store the mean reward value over processes with the frequency of log_mean_interval
+    mean_episode_rewards = []
+    log_mean_interval = 10
 
     start = time.time()
     num_updates = int(
@@ -204,12 +211,19 @@ def main():
                         np.median(episode_rewards), np.min(episode_rewards),
                         np.max(episode_rewards), dist_entropy, value_loss,
                         action_loss))
-
+            
         if (args.eval_interval is not None and len(episode_rewards) > 1
                 and j % args.eval_interval == 0):
             obs_rms = utils.get_vec_normalize(envs).obs_rms
             evaluate(actor_critic, obs_rms, args.env_name, args.seed,
                      args.num_processes, eval_log_dir, device)
+        
+        # ADDED:
+        if j % log_mean_interval == 0 and len(episode_rewards) > 1:
+            mean_episode_rewards.append(np.mean(episode_rewards))
+
+    with open('./log/mean_rewards.txt', 'wb') as f:
+        pickle.dump(mean_episode_rewards, f)
 
 
 if __name__ == "__main__":
