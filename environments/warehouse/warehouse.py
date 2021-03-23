@@ -85,6 +85,7 @@ class Warehouse(gym.Env):
         done = (self.max_episode_length <= self.episode_length)
         if self.render_bool:
             self.render(self.render_delay)
+
         return obs, reward, done, {}
 
     @property

@@ -36,14 +36,18 @@ except ImportError:
 
 def make_env(env_id, seed, rank, log_dir, allow_early_resets):
     def _thunk():
-        # if env_id.startswith("dm"):
-        #     _, domain, task = env_id.split('.')
-        #     env = dmc2gym.make(domain_name=domain, task_name=task)
-        #     env = ClipAction(env)
-        # else:
-        #     env = gym.make(env_id)
-        parameters = dict(num_frames=1)
-        env = Warehouse(seed, parameters)
+        if env_id.startswith("dm"):
+            _, domain, task = env_id.split('.')
+            env = dmc2gym.make(domain_name=domain, task_name=task)
+            env = ClipAction(env)
+        # MODIFIED
+        elif(env_id == 'Warehouse'):
+            parameters = dict(num_frames=1)
+            env = Warehouse(seed, parameters)
+        # END MODIFED
+        else:
+            env = gym.make(env_id)
+
 
         is_atari = hasattr(gym.envs, 'atari') and isinstance(
             env.unwrapped, gym.envs.atari.atari_env.AtariEnv)

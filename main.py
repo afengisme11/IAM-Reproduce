@@ -15,11 +15,26 @@ from a2c_ppo_acktr import algo, utils
 from a2c_ppo_acktr.algo import gail
 from a2c_ppo_acktr.arguments import get_args
 from a2c_ppo_acktr.envs import make_vec_envs
-# from a2c_ppo_acktr.model import Policy
-from a2c_ppo_acktr.model_IAM import Policy
+from a2c_ppo_acktr.model import Policy
+from a2c_ppo_acktr.IAMModel import IAMPolicy
 from a2c_ppo_acktr.storage import RolloutStorage
 from evaluation import evaluate
 
+"""
+    NOTE:
+    Default arguments overview:
+        algo='a2c', alpha=0.99, clip_param=0.2, cuda=True, 
+        cuda_deterministic=False, entropy_coef=0.01, env_name='PongNoFrameskip-v4', 
+        eps=1e-05, eval_interval=None, gae_lambda=0.95, gail=False, gail_batch_size=128, 
+        gail_epoch=5, gail_experts_dir='./gail_experts', gamma=0.99, log_dir='/tmp/gym/', 
+        log_interval=10, lr=0.0007, max_grad_norm=0.5, no_cuda=False, num_env_steps=10000000.0, 
+        num_mini_batch=32, num_processes=16, num_steps=5, ppo_epoch=4, recurrent_policy=False, 
+        save_dir='./trained_models/', save_interval=100, seed=1, use_gae=False, 
+        use_linear_lr_decay=False, use_proper_time_limits=False, value_loss_coef=0.5
+
+    So default: 
+        num_env_steps 10,000,000 = 125,000 episodes x 5 steps x 16 processes simultaneously
+"""
 def main():
     args = get_args()
 
@@ -40,12 +55,15 @@ def main():
 
     envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, device, False)
-    print(envs.observation_space.shape)
+    # print(envs.observation_space.shape)
 
-    actor_critic = Policy(
+    # actor_critic = Policy(
+    #     envs.observation_space.shape,
+    #     envs.action_space,
+    #     base_kwargs={'recurrent': args.recurrent_policy})
+    actor_critic = IAMPolicy(
         envs.observation_space.shape,
-        envs.action_space,
-        base_kwargs={'recurrent': args.recurrent_policy})
+        envs.action_space)
     actor_critic.to(device)
 
     if args.algo == 'a2c':
@@ -111,7 +129,6 @@ def main():
                 agent.optimizer.lr if args.algo == "acktr" else args.lr)
 
         for step in range(args.num_steps):
-            envs.render()
             # Sample actions
             with torch.no_grad():
                 value, action, action_log_prob, recurrent_hidden_states = actor_critic.act(
