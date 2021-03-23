@@ -18,7 +18,7 @@ with open('./log/mean_rewards.txt', 'rb') as f:
 mean_episode_rewards = np.array(mean_episode_rewards)
 # timesteps = HERE * mean_log_interval * processes * num_steps
 timesteps = np.arange(mean_episode_rewards.shape[0]) * 10 * 16 * 10 / 1e6
-print(timesteps.shape)
+# print(timesteps.shape)
 
 plt.plot(timesteps, mean_episode_rewards, color='magenta')
 plt.xlabel('Timesteps[1e6]')
