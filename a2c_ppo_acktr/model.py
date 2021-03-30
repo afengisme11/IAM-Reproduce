@@ -170,7 +170,7 @@ class NNBase(nn.Module):
 
 class AtariBase(NNBase):
     def __init__(self, num_inputs, recurrent=False, hidden_size=128):
-        super(AtariBase, self).__init__(recurrent, 64, hidden_size)
+        super(AtariBase, self).__init__(recurrent, 113, hidden_size)
         self._depatch_size = hidden_size
         self.flag = 0
 
@@ -195,7 +195,7 @@ class AtariBase(NNBase):
 
         self.actor = nn.Sequential(
             init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)))
+            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh())
 
         self.critic = nn.Sequential(
             init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
@@ -238,7 +238,8 @@ class AtariBase(NNBase):
         # print(linear_prehidden.size())
         context = self.dpatch_combine(linear_conv + torch.unsqueeze(linear_prehidden, 1))
         attention_weights = self.dpatch_weights(context)
-        inf_hidden = torch.sum(attention_weights*hidden,dim=1)
+        dpatch = torch.sum(attention_weights*hidden,dim=1)
+        inf_hidden = torch.cat((dpatch,torch.reshape(attention_weights, ([-1, num_regions]))), 1)
 
         return inf_hidden   
 
@@ -273,7 +274,7 @@ class WarehouseBase(NNBase):
 
         self.actor = nn.Sequential(
             init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)))
+            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh())
 
         self.critic = nn.Sequential(
             init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
@@ -296,7 +297,7 @@ class WarehouseBase(NNBase):
 
         return inf_hidden
 
-    def forward(self, inputs, rnn_hxs, masks):
+    def forward(self, inputs, rnn_hxs, masks, eval=0):
         x = inputs
 
         # go through d_pathched reccurent network, update for one step
