@@ -13,15 +13,18 @@ class Flatten(nn.Module):
 
 
 class Policy(nn.Module):
-    def __init__(self, obs_shape, action_space, base=None, base_kwargs=None):
+    def __init__(self, obs_shape, action_space, env, base=None, base_kwargs=None):
         super(Policy, self).__init__()
+        print(obs_shape)
         if base_kwargs is None:
             base_kwargs = {}
         if base is None:
-            if len(obs_shape) == 3:
-                base = CNNBase
-            elif len(obs_shape) == 1:
-                base = MLPBase
+            if env == 'BreakoutNoFrameskip-v4':
+                base = AtariBase
+            elif env == 'traffic':
+                base = trafficBase
+            elif env == 'warehouse':
+                base = WarehouseBase
             else:
                 raise NotImplementedError
 
@@ -70,7 +73,7 @@ class Policy(nn.Module):
         return value
 
     def evaluate_actions(self, inputs, rnn_hxs, masks, action):
-        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
+        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks, eval=1)
         dist = self.dist(actor_features)
 
         action_log_probs = dist.log_probs(action)
@@ -106,9 +109,9 @@ class NNBase(nn.Module):
 
     @property
     def output_size(self):
-        return self._hidden_size
+        return self._hidden_size   
 
-    def _forward_gru(self, x, hxs, masks):
+    def _forward_gru(self, x, hxs, masks): 
         if x.size(0) == hxs.size(0):
             x, hxs = self.gru(x.unsqueeze(0), (hxs * masks).unsqueeze(0))
             x = x.squeeze(0)
@@ -165,66 +168,200 @@ class NNBase(nn.Module):
 
         return x, hxs
 
-
-class CNNBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=512):
-        super(CNNBase, self).__init__(recurrent, hidden_size, hidden_size)
+class AtariBase(NNBase):
+    def __init__(self, num_inputs, recurrent=False, hidden_size=128):
+        super(AtariBase, self).__init__(recurrent, 64, hidden_size)
+        self._depatch_size = hidden_size
+        self.flag = 0
 
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), nn.init.calculate_gain('relu'))
 
-        self.main = nn.Sequential(
+        self.cnn = nn.Sequential(
             init_(nn.Conv2d(num_inputs, 32, 8, stride=4)), nn.ReLU(),
             init_(nn.Conv2d(32, 64, 4, stride=2)), nn.ReLU(),
-            init_(nn.Conv2d(64, 32, 3, stride=1)), nn.ReLU(), Flatten(),
-            init_(nn.Linear(32 * 7 * 7, hidden_size)), nn.ReLU())
+            init_(nn.Conv2d(64, 64, 3, stride=1)), nn.ReLU())
+            # init_(nn.Linear(32 * 7 * 7, hidden_size)), nn.ReLU())
 
-        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0))
-
-        self.critic_linear = init_(nn.Linear(hidden_size, 1))
-
-        self.train()
-
-    def forward(self, inputs, rnn_hxs, masks):
-        x = self.main(inputs / 255.0)
-
-        if self.is_recurrent:
-            x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
-
-        return self.critic_linear(x), x, rnn_hxs
-
-
-class MLPBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=64):
-        super(MLPBase, self).__init__(recurrent, num_inputs, hidden_size)
-
-        if recurrent:
-            num_inputs = hidden_size
+        self.fnn = nn.Sequential(
+            Flatten(),
+            init_(nn.Linear(64 * 7 * 7, hidden_size)), nn.ReLU(),
+            init_(nn.Linear(hidden_size, hidden_size)),nn.ReLU(),
+            init_(nn.Linear(hidden_size, hidden_size)),nn.ReLU())
+        
 
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), np.sqrt(2))
 
         self.actor = nn.Sequential(
-            init_(nn.Linear(num_inputs, hidden_size)), nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
+            init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
+            init_(nn.Linear(hidden_size, hidden_size)))
 
         self.critic = nn.Sequential(
-            init_(nn.Linear(num_inputs, hidden_size)), nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
+            init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
+            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh(),
+            init_(nn.Linear(hidden_size, 1)))
 
-        self.critic_linear = init_(nn.Linear(hidden_size, 1))
+        # functional layers
+        self.dpatch_conv = init_(nn.Linear(64, 128)) #depatch, merge the channels and encode them
+
+        self.dpatch_auto = init_(nn.Linear(64, 128))
+        self.dpatch_auto_norm = init_(nn.Linear(7*7*128, 128))
+
+        self.dpatch_prehidden = init_(nn.Linear(hidden_size, 128))
+
+        self.dpatch_combine = nn.Tanh()
+
+        self.dpatch_weights = nn.Sequential(
+            init_(nn.Linear(128,1)), nn.Softmax(dim=1))
 
         self.train()
 
+    # def auto_depatch(self, hidden_conv):
+    #     hidden_conv = hidden_conv.permute(0,2,3,1)
+    #     shape = hidden_conv.size()
+    #     num_regions = shape[1]*shape[2]
+    #     hidden = torch.reshape(hidden_conv, ([-1,num_regions,shape[3]]))
+    #     inf_hidden = self.dpatch_auto(hidden)
+    #     hidden_size = inf_hidden.size()[1]*inf_hidden.size()[2]
+    #     inf_hidden = self.dpatch_auto_norm(torch.reshape(inf_hidden, shape=[-1, hidden_size]))
+
+    #     return inf_hidden
+
+    def attention(self, hidden_conv, rnn_hxs):
+        hidden_conv = hidden_conv.permute(0,2,3,1)
+        shape = hidden_conv.size()
+        num_regions = shape[1]*shape[2]
+        hidden = torch.reshape(hidden_conv, ([-1,num_regions,shape[3]]))
+        linear_conv = self.dpatch_conv(hidden)        
+        linear_prehidden = self.dpatch_prehidden(rnn_hxs)
+        # print(linear_prehidden.size())
+        context = self.dpatch_combine(linear_conv + torch.unsqueeze(linear_prehidden, 1))
+        attention_weights = self.dpatch_weights(context)
+        inf_hidden = torch.sum(attention_weights*hidden,dim=1)
+
+        return inf_hidden   
+
+    def forward(self, inputs, rnn_hxs, masks, eval=0):
+        hidden_conv = self.cnn(inputs / 255.0)
+        # print(inputs.size())
+        fnn_out = self.fnn(hidden_conv)
+        # if eval == 0:
+        inf_hidden = self.attention(hidden_conv, rnn_hxs)
+        rnn_out, rnn_hxs = self._forward_gru(inf_hidden, rnn_hxs, masks)
+        # if eval == 1:
+        # inf_hidden = self.attention(hidden_conv,rnn_hxs)
+        # rnn_out, rnn_hxs = self._forward_gru(inf_hidden, rnn_hxs, masks)
+
+        x = torch.cat((rnn_out,fnn_out), 1)
+
+        value = self.critic(x) 
+        action = self.actor(x)
+
+        return value, action, rnn_hxs
+
+class WarehouseBase(NNBase):
+    def __init__(self, num_inputs, recurrent=False, hidden_size=64):
+        super(WarehouseBase, self).__init__(recurrent, 25, hidden_size)
+
+        # Same attributes with original model
+        self.dset = [0, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
+           63, 64, 65, 66, 67, 68, 69, 70, 71, 72]
+
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0), np.sqrt(2))
+
+        self.actor = nn.Sequential(
+            init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
+            init_(nn.Linear(hidden_size, hidden_size)))
+
+        self.critic = nn.Sequential(
+            init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
+            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh(),
+            init_(nn.Linear(hidden_size, 1)))
+
+        self.fnn = nn.Sequential(
+            init_(nn.Linear(num_inputs, hidden_size)),nn.ReLU(),
+            init_(nn.Linear(hidden_size, hidden_size)),nn.ReLU(),
+            init_(nn.Linear(hidden_size, hidden_size)),nn.ReLU())
+
+        self.train()
+
+    def manual_dpatch(self, network_input):
+        """
+        inf_hidden is the input of reccurent net, dset is manually defined here and is static.
+        """
+        
+        inf_hidden = network_input[:, self.dset]
+
+        return inf_hidden
+
     def forward(self, inputs, rnn_hxs, masks):
         x = inputs
-        print(inputs.shape)
 
+        # go through d_pathched reccurent network, update for one step
         if self.is_recurrent:
-            x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
+            x_rec = self.manual_dpatch(x)
+            x_rec, rnn_hxs = self._forward_gru(x_rec, rnn_hxs, masks)
+        
+        # go through fnn with all the observations
+        fnn_out = self.fnn(x)
+
+        x = torch.cat((x_rec,fnn_out), 1)
 
         hidden_critic = self.critic(x)
         hidden_actor = self.actor(x)
 
-        return self.critic_linear(hidden_critic), hidden_actor, rnn_hxs
+        return hidden_critic, hidden_actor, rnn_hxs
+
+class trafficBase(NNBase):
+    def __init__(self, num_inputs, recurrent=False, hidden_size=64):
+        super(trafficBase, self).__init__(recurrent, 4, hidden_size)
+
+        # Same attributes with original model
+        self.dset = [13, 14, 28, 29]
+
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0), np.sqrt(2))
+
+        self.actor = nn.Sequential(
+            init_(nn.Linear(2*hidden_size, 4*hidden_size)), nn.Tanh(),
+            init_(nn.Linear(4*hidden_size, hidden_size)), nn.Tanh())
+
+        self.critic = nn.Sequential(
+            init_(nn.Linear(2*hidden_size, 4*hidden_size)), nn.Tanh(),
+            init_(nn.Linear(4*hidden_size, hidden_size)), nn.Tanh(),
+            init_(nn.Linear(hidden_size, 1)))
+
+        self.fnn = nn.Sequential(
+            init_(nn.Linear(num_inputs, 248)),nn.ReLU(),
+            init_(nn.Linear(248, hidden_size)),nn.ReLU(),)
+
+        self.train()
+
+    def manual_dpatch(self, network_input):
+        """
+        inf_hidden is the input of reccurent net, dset is manually defined here and is static.
+        """
+        
+        inf_hidden = network_input[:, self.dset]
+
+        return inf_hidden
+
+    def forward(self, inputs, rnn_hxs, masks, eval=0):
+        x = inputs
+
+        # go through d_pathched reccurent network, update for one step
+
+        x_rec = self.manual_dpatch(x)
+        x_rec, rnn_hxs = self._forward_gru(x_rec, rnn_hxs, masks)
+
+        # go through fnn with all the observations
+        fnn_out = self.fnn(x)
+
+        x = torch.cat((x_rec,fnn_out), 1)
+
+        hidden_critic = self.critic(x)
+        hidden_actor = self.actor(x)
+
+        return hidden_critic, hidden_actor, rnn_hxs

@@ -1,5 +1,5 @@
 import os
-
+import math
 import gym
 import numpy as np
 import torch
@@ -13,10 +13,13 @@ from stable_baselines3.common.atari_wrappers import (ClipRewardEnv,
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import (DummyVecEnv, SubprocVecEnv,
                                               VecEnvWrapper)
+# from stable_baselines3.common.atari_wrappers import make_atari, wrap_deepmind
+# from stable_baselines3 import bench
 from stable_baselines3.common.vec_env.vec_normalize import \
     VecNormalize as VecNormalize_
-
+ 
 from environments.warehouse.warehouse import Warehouse
+from environments.sumo.LoopNetwork import LoopNetwork
 
 try:
     import dmc2gym
@@ -41,9 +44,14 @@ def make_env(env_id, seed, rank, log_dir, allow_early_resets):
             env = dmc2gym.make(domain_name=domain, task_name=task)
             env = ClipAction(env)
         # MODIFIED
-        elif(env_id == 'Warehouse'):
+        elif(env_id == 'warehouse'):
             parameters = dict(num_frames=1)
             env = Warehouse(seed, parameters)
+        elif(env_id == 'traffic'):
+            parameters = dict(num_frames=1, scene = 'loop_network', max_steps = 2.0e+6, \
+                obs_type = 'vector', obs_size = 30, max_episode_steps = 250, \
+                summary_frequency = 5.0e+4, mode = 'train')
+            env = LoopNetwork(parameters, seed)
         # END MODIFED
         else:
             env = gym.make(env_id)

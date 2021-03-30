@@ -1,3 +1,11 @@
+'''
+Author: your name
+Date: 2021-03-26 16:56:33
+LastEditTime: 2021-03-26 18:59:12
+LastEditors: your name
+Description: In User Settings Edit
+FilePath: /origin/home/zheyu/Desktop/Deep_Learning/together/IAM-Reproduce/environments/sumo/TrafficLightPhases.py
+'''
 from _pyio import IOBase
 
 import xml.etree.ElementTree as ElementTree

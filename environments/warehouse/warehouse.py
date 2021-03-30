@@ -86,7 +86,7 @@ class Warehouse(gym.Env):
         if self.render_bool:
             self.render(self.render_delay)
 
-        return obs, reward, done, {}
+        return obs, reward, done, {} 
 
     @property
     def observation_space(self):

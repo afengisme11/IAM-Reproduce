@@ -1,3 +1,11 @@
+'''
+Author: your name
+Date: 2021-03-25 21:52:42
+LastEditTime: 2021-03-27 15:55:24
+LastEditors: your name
+Description: In User Settings Edit
+FilePath: /origin/home/zheyu/Desktop/Deep_Learning/together/IAM-Reproduce/evaluation.py
+'''
 import numpy as np
 import torch
 
@@ -18,6 +26,7 @@ def evaluate(actor_critic, obs_rms, env_name, seed, num_processes, eval_log_dir,
     eval_episode_rewards = []
 
     obs = eval_envs.reset()
+    # print(obs.size())
     eval_recurrent_hidden_states = torch.zeros(
         num_processes, actor_critic.recurrent_hidden_state_size, device=device)
     eval_masks = torch.zeros(num_processes, 1, device=device)

@@ -14,7 +14,7 @@ from gym.spaces import Box
 import numpy as np
 
 
-class SumoGymAdapter(object):
+class SumoGymAdapter(gym.Env):
     """
     An adapter that makes Sumo behave as a proper Gym environment.
     At top level, the actionspace and percepts are in a Dict with the
@@ -23,7 +23,7 @@ class SumoGymAdapter(object):
         A retry is needed if the randomly chosen port
         to connect to SUMO is already in use.
     """
-    _DEFAULT_PARAMETERS = {'gui':True,  # gui or not
+    _DEFAULT_PARAMETERS = {'gui':False,  # gui or not
                 'scene':'four_grid',  # subdirectory in the aienvs/scenarios/Sumo directory where
                 'tlphasesfile':'sample.net.xml',  # file
                 'box_bottom_corner':(0, 0),  # bottom left corner of the observable frame
@@ -77,7 +77,7 @@ class SumoGymAdapter(object):
         _s = self._observe()
         self.frame_height = _s.shape[0]
         self.frame_width = _s.shape[1]
-        return Box(low=0, high=1.0, shape=(self.frame_height, self.frame_width), dtype=np.float32)
+        return Box(low=0, high=1.0, shape=(self.frame_height+self.frame_width,), dtype=np.float32)
 
     def step(self, actions:dict):
         self._set_lights(actions)
@@ -96,7 +96,7 @@ class SumoGymAdapter(object):
             done = True
         global_reward = self._computeGlobalReward()
         # as in openai gym, last one is the info list
-        return obs, global_reward, done, []
+        return obs, global_reward, done, {}
 
     def reset(self):
         try:
@@ -217,7 +217,7 @@ class SumoGymAdapter(object):
         @return the intersection PHASES string eg 'rrGr' or 'GGrG'
         """
         logging.debug("lightPhaseId" + str(lightPhaseId))
-        return self._tlphases.getPhase(intersectionId, lightPhaseId)
+        return self._tlphases.getPhase(intersectionId, int(lightPhaseId))
 
     def _observe(self):
         """

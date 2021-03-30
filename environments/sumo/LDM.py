@@ -3,6 +3,7 @@ import sys
 import logging
 import numpy as np
 import string
+import time
 
 class ldm():
     '''
