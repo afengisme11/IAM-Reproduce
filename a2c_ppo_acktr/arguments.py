@@ -149,6 +149,14 @@ def get_args():
         action='store_true',
         default=False,
         help='use a linear schedule on the learning rate')
+# ADDED:
+    parser.add_argument(
+        '--flicker',
+        action='store_true',
+        default=False,
+        help='Make the atari flickering')
+# END ADDED
+
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

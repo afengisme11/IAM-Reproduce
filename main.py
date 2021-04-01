@@ -66,7 +66,9 @@ def main():
     #     base_kwargs={'recurrent': args.recurrent_policy})
     actor_critic = IAMPolicy(
         envs.observation_space.shape,
-        envs.action_space)
+        envs.action_space,
+        base_kwargs={'env_name': args.env_name}
+        )
     actor_critic.to(device)
 
     if args.algo == 'a2c':
@@ -145,6 +147,12 @@ def main():
             # Obser reward and next obs
             obs, reward, done, infos = envs.step(action)
 
+            # ADDED
+            if args.flicker:
+                prob_flicker = np.random.uniform(0, 1, (envs.observation_space.shape[0],))
+                obs[prob_flicker > 0.5] = 0
+            # END ADDED
+
             for info in infos:
                 if 'episode' in info.keys():
                     episode_rewards.append(info['episode']['r'])
@@ -222,9 +230,9 @@ def main():
         if j % log_mean_interval == 0 and len(episode_rewards) > 1:
             mean_episode_rewards.append(np.mean(episode_rewards))
 
-    with open('./log/mean_rewards.txt', 'wb') as f:
+    log_mean_file = log_dir + 'mean_rewards.txt'
+    with open(log_mean_file, 'wb') as f:
         pickle.dump(mean_episode_rewards, f)
-
 
 if __name__ == "__main__":
     main()

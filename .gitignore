@@ -1,6 +1,6 @@
 ./__pycache__
 ./.ipynb_checkpoints
-./configs
+./.vscode
 experimentor.py.bak
 args.txt
 default_warehouse.yaml
