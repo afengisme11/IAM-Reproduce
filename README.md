@@ -32,6 +32,6 @@ python plot_results.py
 
 Currently the results of mean rewards is like:
 
-![warehouse](README.assets/warehouse.png)
-![traffic](README.assets/traffic.png)
+![Warehouse](README.assets/Warehouse.png)
+![Traffic](README.assets/Traffic.png)
 
