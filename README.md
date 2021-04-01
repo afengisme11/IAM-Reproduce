@@ -4,6 +4,7 @@ This repo is for the Influence-Aware Memory(IAM) architecture(https://arxiv.org/
 ## Run
 
 To run for different situations, use the following codes
+
 Run FNN8 (32)
 ```bash
 python main.py --env-name 'warehouse' --num-steps 8 --recurrent-policy 
@@ -29,7 +30,7 @@ The results are saved in ./log (warehouse) and ./log_t (traffic), respectively. 
 python plot_results.py
 ```
 
-Currently the result of mean rewards is like:
+Currently the results of mean rewards is like:
 
 ![warehouse](README.assets/warehouse.png)
 ![traffic](README.assets/traffic.png)
