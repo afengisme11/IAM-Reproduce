@@ -1,7 +1,7 @@
 '''
 Author: your name
 Date: 2021-03-25 21:52:42
-LastEditTime: 2021-03-28 14:46:44
+LastEditTime: 2021-04-01 23:51:39
 LastEditors: Please set LastEditors
 Description: In User Settings Edit
 FilePath: /origin/home/zheyu/Desktop/Deep_Learning/together/IAM-Reproduce/plot_results.py
@@ -20,23 +20,35 @@ import pickle
 
 #COMMENT 
 # Plot manually stored mean rewards
-with open('./log_t/mean_rewards.txt', 'rb') as f:
-    mean_episode_rewards = pickle.load(f)
+with open('./log/mean_rewards_GRU.txt', 'rb') as f:
+    mean_episode_rewards_GRU = pickle.load(f)
+with open('./log/mean_rewards_IAM.txt', 'rb') as f:
+    mean_episode_rewards_IAM = pickle.load(f)
+with open('./log/mean_rewards_FNN8.txt', 'rb') as f:
+    mean_episode_rewards_FNN8 = pickle.load(f)
+with open('./log/mean_rewards_FNN1.txt', 'rb') as f:
+    mean_episode_rewards_FNN1 = pickle.load(f)
 
-mean_episode_rewards = np.array(mean_episode_rewards)
+mean_episode_rewards_GRU = np.array(mean_episode_rewards_GRU)
+mean_episode_rewards_IAM = np.array(mean_episode_rewards_IAM)
+mean_episode_rewards_FNN8 = np.array(mean_episode_rewards_FNN8)
+mean_episode_rewards_FNN1 = np.array(mean_episode_rewards_FNN1)
 # timesteps = HERE * mean_log_interval * processes * num_steps
-timesteps = np.arange(mean_episode_rewards.shape[0]) * 10 * 16 * 10/ 1e6
+timesteps = np.arange(mean_episode_rewards_GRU.shape[0]) * 10 * 16 * 8/ 1e6
 # print(timesteps.shape)
 
+fnn8 = np.zeros_like(timesteps) + np.mean(mean_episode_rewards_FNN8[-30:])
+fnn1 = np.zeros_like(timesteps) + np.mean(mean_episode_rewards_FNN1[-30:])
 # EWMA
 rho = 0.99 # Rho value for smoothing
 
 s_prev = 0 # Initial value ewma value
 
 # Empty arrays to hold the smoothed data
-ewma, ewma_bias_corr = np.empty(0), np.empty(0)
+ewma_GRU, ewma_bias_corr_GRU = np.empty(0), np.empty(0)
+ewma_IAM, ewma_bias_corr_IAM = np.empty(0), np.empty(0)
 
-for i,y in enumerate(mean_episode_rewards):
+for i,y in enumerate(mean_episode_rewards_IAM):
     
     # Variables to store smoothed data point
     s_cur = 0
@@ -46,21 +58,42 @@ for i,y in enumerate(mean_episode_rewards):
     s_cur_bc = s_cur / (1-rho**(i+1))
     
     # Append new smoothed value to array
-    ewma = np.append(ewma,s_cur)
-    ewma_bias_corr = np.append(ewma_bias_corr,s_cur_bc)
+    ewma_IAM = np.append(ewma_IAM,s_cur)
+    ewma_bias_corr_IAM = np.append(ewma_bias_corr_IAM,s_cur_bc)
 
     s_prev = s_cur
 
+rho = 0.99 # Rho value for smoothing
+
+s_prev = 0 # Initial value ewma value
+for i,y in enumerate(mean_episode_rewards_GRU):
+    
+    # Variables to store smoothed data point
+    s_cur = 0
+    s_cur_bc = 0
+
+    s_cur = rho * s_prev + (1-rho) * y
+    s_cur_bc = s_cur / (1-rho**(i+1))
+    
+    # Append new smoothed value to array
+    ewma_GRU = np.append(ewma_GRU,s_cur)
+    ewma_bias_corr_GRU = np.append(ewma_bias_corr_GRU,s_cur_bc)
+
+    s_prev = s_cur
 # plt.scatter(timesteps, mean_episode_rewards, s=3) # Plot the noisy data in gray
 # plt.plot(timesteps, ewma, 'r--', linewidth=3) # Plot the EWMA in red 
-plt.plot(timesteps, ewma_bias_corr, 'g--', linewidth=2) # Plot the EWMA with bias correction in green
+plt.plot(timesteps, ewma_bias_corr_IAM, 'b--', linewidth=2, label='IAM') 
+plt.plot(timesteps, ewma_bias_corr_GRU, 'y--', linewidth=2, label='GRU')
+plt.plot(timesteps, fnn8, 'r--', linewidth=2, label='FNN(8 obs)')
+plt.plot(timesteps, fnn1, 'k--', linewidth=2, label='FNN(1 obs)')
 # plt.plot(timesteps, data_clean, 'orange', linewidth=3) # Plot the original data in orange
 plt.xlabel('Timesteps[1e6]')
 plt.ylabel('Mean reward')
-plt.title('Warehouse with IAM')
+plt.title('Warehouse with GRU')
 plt.xlim([0,4])
-# plt.ylim([26,42])
+plt.ylim([26,42])
 plt.grid()
+plt.legend(loc="lower right")
 plt.show()
 
 

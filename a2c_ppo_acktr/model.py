@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 from a2c_ppo_acktr.distributions import Bernoulli, Categorical, DiagGaussian
 from a2c_ppo_acktr.utils import init
-
+from a2c_ppo_acktr.arguments import get_args
 
 class Flatten(nn.Module):
     def forward(self, x):
@@ -16,6 +16,7 @@ class Policy(nn.Module):
     def __init__(self, obs_shape, action_space, env, base=None, base_kwargs=None):
         super(Policy, self).__init__()
         print(obs_shape)
+        args = get_args()
         if base_kwargs is None:
             base_kwargs = {}
         if base is None:
@@ -23,12 +24,21 @@ class Policy(nn.Module):
                 base = AtariBase
             elif env == 'traffic':
                 base = trafficBase
+                if args.IAM:
+                    hxs_size = 4
+                else:
+                    hxs_size = 30
             elif env == 'warehouse':
                 base = WarehouseBase
+                if args.IAM:
+                    hxs_size = 25
+                else:
+                    hxs_size = 73
             else:
                 raise NotImplementedError
+        
 
-        self.base = base(obs_shape[0], **base_kwargs)
+        self.base = base(obs_shape[0], hxs_size, **base_kwargs)
 
         if action_space.__class__.__name__ == "Discrete":
             num_outputs = action_space.n
@@ -73,7 +83,7 @@ class Policy(nn.Module):
         return value
 
     def evaluate_actions(self, inputs, rnn_hxs, masks, action):
-        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks, eval=1)
+        value, actor_features, rnn_hxs = self.base(inputs, rnn_hxs, masks)
         dist = self.dist(actor_features)
 
         action_log_probs = dist.log_probs(action)
@@ -83,11 +93,12 @@ class Policy(nn.Module):
 
 
 class NNBase(nn.Module):
-    def __init__(self, recurrent, recurrent_input_size, hidden_size):
+    def __init__(self, recurrent, IAM, recurrent_input_size, hidden_size):
         super(NNBase, self).__init__()
 
         self._hidden_size = hidden_size
         self._recurrent = recurrent
+        self._IAM = IAM
 
         if recurrent:
             self.gru = nn.GRU(recurrent_input_size, hidden_size)
@@ -100,6 +111,10 @@ class NNBase(nn.Module):
     @property
     def is_recurrent(self):
         return self._recurrent
+    
+    @property
+    def is_IAM(self):
+        return self._IAM
 
     @property
     def recurrent_hidden_state_size(self):
@@ -169,10 +184,9 @@ class NNBase(nn.Module):
         return x, hxs
 
 class AtariBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=128):
+    def __init__(self, num_inputs, recurrent=False, IAM=False, hidden_size=128):
         super(AtariBase, self).__init__(recurrent, 113, hidden_size)
         self._depatch_size = hidden_size
-        self.flag = 0
 
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), nn.init.calculate_gain('relu'))
@@ -243,16 +257,12 @@ class AtariBase(NNBase):
 
         return inf_hidden   
 
-    def forward(self, inputs, rnn_hxs, masks, eval=0):
+    def forward(self, inputs, rnn_hxs, masks):
         hidden_conv = self.cnn(inputs / 255.0)
         # print(inputs.size())
         fnn_out = self.fnn(hidden_conv)
-        # if eval == 0:
         inf_hidden = self.attention(hidden_conv, rnn_hxs)
         rnn_out, rnn_hxs = self._forward_gru(inf_hidden, rnn_hxs, masks)
-        # if eval == 1:
-        # inf_hidden = self.attention(hidden_conv,rnn_hxs)
-        # rnn_out, rnn_hxs = self._forward_gru(inf_hidden, rnn_hxs, masks)
 
         x = torch.cat((rnn_out,fnn_out), 1)
 
@@ -262,8 +272,8 @@ class AtariBase(NNBase):
         return value, action, rnn_hxs
 
 class WarehouseBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=64):
-        super(WarehouseBase, self).__init__(recurrent, 25, hidden_size)
+    def __init__(self, num_inputs, hxs_size, recurrent=False, IAM=False, hidden_size=64):
+        super(WarehouseBase, self).__init__(recurrent, IAM, hxs_size, hidden_size)
 
         # Same attributes with original model
         self.dset = [0, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
@@ -273,18 +283,22 @@ class WarehouseBase(NNBase):
                                constant_(x, 0), np.sqrt(2))
 
         self.actor = nn.Sequential(
-            init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh())
+            init_(nn.Linear(2*hidden_size, hidden_size)))
 
         self.critic = nn.Sequential(
-            init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh(),
+            init_(nn.Linear(2*hidden_size, 1)))
+
+        # self.actor_n = nn.Sequential(
+        #     init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh(),
+        #     init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh())
+
+        self.critic_n = nn.Sequential(
             init_(nn.Linear(hidden_size, 1)))
 
         self.fnn = nn.Sequential(
-            init_(nn.Linear(num_inputs, hidden_size)),nn.ReLU(),
-            init_(nn.Linear(hidden_size, hidden_size)),nn.ReLU(),
-            init_(nn.Linear(hidden_size, hidden_size)),nn.ReLU())
+            init_(nn.Linear(num_inputs, 576)),nn.ReLU(),
+            init_(nn.Linear(576, 256)),nn.ReLU(),
+            init_(nn.Linear(256, hidden_size)),nn.ReLU())
 
         self.train()
 
@@ -297,27 +311,34 @@ class WarehouseBase(NNBase):
 
         return inf_hidden
 
-    def forward(self, inputs, rnn_hxs, masks, eval=0):
+    def forward(self, inputs, rnn_hxs, masks):
         x = inputs
 
         # go through d_pathched reccurent network, update for one step
         if self.is_recurrent:
-            x_rec = self.manual_dpatch(x)
-            x_rec, rnn_hxs = self._forward_gru(x_rec, rnn_hxs, masks)
+            print(1)
+            if self.is_IAM:
+                x_rec = self.manual_dpatch(x)
+                x_rec, rnn_hxs = self._forward_gru(x_rec, rnn_hxs, masks)
+                fnn_out = self.fnn(x)
+                x = torch.cat((x_rec,fnn_out), 1)
+            else:
+                x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
+        else:
+            x = self.fnn(x)
         
-        # go through fnn with all the observations
-        fnn_out = self.fnn(x)
-
-        x = torch.cat((x_rec,fnn_out), 1)
-
-        hidden_critic = self.critic(x)
-        hidden_actor = self.actor(x)
+        if self.is_IAM:
+            hidden_critic = self.critic(x)
+            hidden_actor = self.actor(x)
+        else:
+            hidden_critic = self.critic_n(x)
+            hidden_actor = x
 
         return hidden_critic, hidden_actor, rnn_hxs
 
 class trafficBase(NNBase):
-    def __init__(self, num_inputs, recurrent=False, hidden_size=64):
-        super(trafficBase, self).__init__(recurrent, 4, hidden_size)
+    def __init__(self, num_inputs, hxs_size, recurrent=False, IAM=False, hidden_size=8):
+        super(trafficBase, self).__init__(recurrent, IAM, hxs_size, hidden_size)
 
         # Same attributes with original model
         self.dset = [13, 14, 28, 29]
@@ -326,17 +347,18 @@ class trafficBase(NNBase):
                                constant_(x, 0), np.sqrt(2))
 
         self.actor = nn.Sequential(
-            init_(nn.Linear(2*hidden_size, 4*hidden_size)), nn.Tanh(),
-            init_(nn.Linear(4*hidden_size, hidden_size)), nn.Tanh())
+            init_(nn.Linear(2*hidden_size, hidden_size)))
 
         self.critic = nn.Sequential(
-            init_(nn.Linear(2*hidden_size, 4*hidden_size)), nn.Tanh(),
-            init_(nn.Linear(4*hidden_size, hidden_size)), nn.Tanh(),
+            init_(nn.Linear(2*hidden_size, 1)))
+
+        self.critic_n = nn.Sequential(
             init_(nn.Linear(hidden_size, 1)))
 
         self.fnn = nn.Sequential(
             init_(nn.Linear(num_inputs, 248)),nn.ReLU(),
-            init_(nn.Linear(248, hidden_size)),nn.ReLU(),)
+            init_(nn.Linear(248, 64)),nn.ReLU(),
+            init_(nn.Linear(64, hidden_size)),nn.ReLU())
 
         self.train()
 
@@ -349,20 +371,25 @@ class trafficBase(NNBase):
 
         return inf_hidden
 
-    def forward(self, inputs, rnn_hxs, masks, eval=0):
+    def forward(self, inputs, rnn_hxs, masks):
         x = inputs
 
-        # go through d_pathched reccurent network, update for one step
-
-        x_rec = self.manual_dpatch(x)
-        x_rec, rnn_hxs = self._forward_gru(x_rec, rnn_hxs, masks)
-
-        # go through fnn with all the observations
-        fnn_out = self.fnn(x)
-
-        x = torch.cat((x_rec,fnn_out), 1)
-
-        hidden_critic = self.critic(x)
-        hidden_actor = self.actor(x)
+        if self.is_recurrent:
+            if self.is_IAM:
+                x_rec = self.manual_dpatch(x)
+                x_rec, rnn_hxs = self._forward_gru(x_rec, rnn_hxs, masks)
+                fnn_out = self.fnn(x)
+                x = torch.cat((x_rec,fnn_out), 1)
+            else:
+                x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
+        else:
+            x = self.fnn(x)
+        
+        if self.is_IAM:
+            hidden_critic = self.critic(x)
+            hidden_actor = self.actor(x)
+        else:
+            hidden_critic = self.critic_n(x)
+            hidden_actor = x
 
         return hidden_critic, hidden_actor, rnn_hxs

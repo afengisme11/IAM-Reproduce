@@ -75,7 +75,7 @@ def get_args():
     parser.add_argument(
         '--num-processes',
         type=int,
-        default=1,
+        default=16,
         help='how many training CPU processes to use (default: 16)')
     parser.add_argument(
         '--num-steps',
@@ -141,7 +141,7 @@ def get_args():
         help='compute returns taking into account time limits')
     parser.add_argument(
         '--recurrent-policy',
-        action='store_true',
+        action='store_false',
         default=True,
         help='use a recurrent policy')
     parser.add_argument(
@@ -149,6 +149,11 @@ def get_args():
         action='store_true',
         default=False,
         help='use a linear schedule on the learning rate')
+    parser.add_argument(
+        '--IAM',
+        action='store_true',
+        default=False,
+        help='Use the IAM structure')
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

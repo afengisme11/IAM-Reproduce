@@ -62,7 +62,8 @@ def main():
         envs.observation_space.shape,
         envs.action_space, 
         args.env_name,   
-        base_kwargs={'recurrent': args.recurrent_policy})
+        base_kwargs={'recurrent': args.recurrent_policy, \
+            'IAM': args.IAM})
     actor_critic.to(device)
 
     if args.algo == 'a2c':
@@ -222,10 +223,18 @@ def main():
             mean_episode_rewards.append(np.mean(episode_rewards))
             max_episode_rewards.append(np.amax(episode_rewards))
 
-    with open('./log_t/mean_rewards.txt', 'wb') as f:
-        pickle.dump(mean_episode_rewards, f)
-    with open('./log_t/max_rewards.txt', 'wb') as f:
-        pickle.dump(max_episode_rewards, f)
+    if args.IAM:
+        with open('./log_t/mean_rewards_IAM.txt', 'wb') as f:
+            pickle.dump(mean_episode_rewards, f)
+    elif args.recurrent_policy:
+        with open('./log_t/mean_rewards_GRU.txt', 'wb') as f:
+            pickle.dump(mean_episode_rewards, f)
+    elif args.num_steps == 10:
+        with open('./log_t/mean_rewards_FNN1.txt', 'wb') as f:
+            pickle.dump(mean_episode_rewards, f)
+    else:
+        with open('./log_t/mean_rewards_FNN8.txt', 'wb') as f:
+            pickle.dump(mean_episode_rewards, f)
 
 
 if __name__ == "__main__":
