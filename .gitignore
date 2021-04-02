@@ -1,8 +1,9 @@
-./__pycache__/
-./.ipynb_checkpoints/
-./.vscode/
-./log_fa/
-./log_tc/
-./log_w/
+__pycache__/*
+.ipynb_checkpoints/*
+.vscode/
+log_fa/*
+log_tc/*
+log_w/*
+trained_models/*
 default_a2c_args.txt
 default_wh_params.yaml
