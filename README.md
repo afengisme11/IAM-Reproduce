@@ -48,7 +48,7 @@ Currently the results of mean rewards is like:
 To run flicker Atari 'BreakoutNoFrameskip-v4' without flickering, use:
 
 ```bash
-python main.py --env-name BreakoutNoFrameskip-v4 --num-processes 4 --num-env-steps 4000000 --num-steps 5 --log-dir ./log_fa/
+python main.py --env-name BreakoutNoFrameskip-v4 --num-env-steps 4000000 --num-steps 8 --lr 0.00025 --log-dir ./log_fa/ --IAM
 ```
 
 The result:
@@ -58,7 +58,7 @@ The result:
 To run flicker Atari 'BreakoutNoFrameskip-v4' with flickering, use:
 
 ```bash
-python main.py --env-name BreakoutNoFrameskip-v4 --num-processes 4 --num-env-steps 4000000 --num-steps 5 --log-dir ./log_fa/ --flicker
+python main.py --env-name BreakoutNoFrameskip-v4 --num-env-steps 4000000 --num-steps 32 --lr 0.00025 --log-dir ./log_fa/ --IAM --flicker
 ```
 
 For the result with flickering, we are still testing.
