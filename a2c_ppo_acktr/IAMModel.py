@@ -90,6 +90,11 @@ class IAMPolicy(nn.Module):
         return value, action_log_probs, dist_entropy, rnn_hxs
 
 class IAMBase(nn.Module):
+    """
+    Influence-Aware Memory archtecture
+
+    NOTE: Implement later as a base for different tasks
+    """
     def __init__(self, recurrent, IAM, recurrent_input_size, hidden_size):
         super(IAMBase, self).__init__()
 
@@ -181,6 +186,22 @@ class IAMBase(nn.Module):
         return x, hxs
 
 class warehouseBase(IAMBase):
+    """
+    IAM architecture for Warehouse environment
+
+    obs ->  |fnn |            ->|-> |nn  | ->critic_linear()->value
+            |____|              |   |____|
+                                |   
+        ->  |dset|  -> |gru | ->|-> |nn  | ->dist()->mode()/sample()->action 
+            |____|     |____|       |____|
+    
+    NOTE:
+    observation: (num_processes, num_inputs: 73 in warehouse)
+    fnn output: (num_processes, hidden_size_fnn)
+    dset output: (num_processes, 25)
+    gru output: ((num_processes, hidden_size_gru), rnn_hxs)
+    output_size:  hidden_size_fnn plus hidden_size_gru
+    """
     def __init__(self, num_inputs, hxs_size, recurrent=False, IAM=False, hidden_size=64):
         super(warehouseBase, self).__init__(recurrent, IAM, hxs_size, hidden_size)
 
@@ -205,8 +226,8 @@ class warehouseBase(IAMBase):
             init_(nn.Linear(hidden_size, 1)))
 
         self.fnn = nn.Sequential(
-            init_(nn.Linear(num_inputs, 576)),nn.ReLU(),
-            init_(nn.Linear(576, 256)),nn.ReLU(),
+            init_(nn.Linear(num_inputs, 512)),nn.ReLU(),
+            init_(nn.Linear(512, 256)),nn.ReLU(),
             init_(nn.Linear(256, hidden_size)),nn.ReLU())
 
         self.train()
@@ -246,6 +267,18 @@ class warehouseBase(IAMBase):
         return hidden_critic, hidden_actor, rnn_hxs
 
 class trafficBase(IAMBase):
+    """
+    IAM architecture for traffic control environment
+
+    obs ->  |fnn |            ->|-> |nn  | ->critic_linear()->value
+            |____|              |   |____|
+                                |   
+        ->  |dset|  -> |gru | ->|-> |nn  | ->dist()->mode()/sample()->action 
+            |____|     |____|       |____|
+
+    NOTE:
+        dset output: (num_processes, 4)
+    """
     def __init__(self, num_inputs, hxs_size, recurrent=False, IAM=False, hidden_size=8):
         super(trafficBase, self).__init__(recurrent, IAM, hxs_size, hidden_size)
 
@@ -265,8 +298,8 @@ class trafficBase(IAMBase):
             init_(nn.Linear(hidden_size, 1)))
 
         self.fnn = nn.Sequential(
-            init_(nn.Linear(num_inputs, 248)),nn.ReLU(),
-            init_(nn.Linear(248, 64)),nn.ReLU(),
+            init_(nn.Linear(num_inputs, 256)),nn.ReLU(),
+            init_(nn.Linear(256, 64)),nn.ReLU(),
             init_(nn.Linear(64, hidden_size)),nn.ReLU())
 
         self.train()
@@ -304,7 +337,16 @@ class trafficBase(IAMBase):
         return hidden_critic, hidden_actor, rnn_hxs
 
 class atariBase(IAMBase):
-    def __init__(self, num_inputs, hxs_size, recurrent=False, IAM=False, hidden_size=128):
+    """
+    IAM architecture for image observed environment
+
+    obs -> |cnn | -> |-> flatten() -> |fnn |   ->|-> |nn  | ->critic_linear()->value
+           |____|    |                |____|     |   |____|
+                     |    |atte|                 |
+                     |->  |tion|   -> |gru |   ->|-> |nn  | ->dist()->mode()/sample()->action 
+                          |____|      |____|         |____|   
+    """
+    def __init__(self, num_inputs, hxs_size, recurrent=False, IAM=False, hidden_size=64):
         super(atariBase, self).__init__(recurrent, IAM, hxs_size, hidden_size)
         self._depatch_size = hidden_size
 
@@ -327,14 +369,16 @@ class atariBase(IAMBase):
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), np.sqrt(2))
 
+        # self.critic_linear = \
+        #             init_(nn.Linear(2*hidden_size, 1))
+
         self.actor = nn.Sequential(
+            init_(nn.Linear(2*hidden_size, 2*hidden_size)),nn.Tanh(),
             init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh())
+            init_(nn.Linear(hidden_size, hidden_size)))
 
         self.critic = nn.Sequential(
-            init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh(),
-            init_(nn.Linear(hidden_size, 1)))
+            init_(nn.Linear(2*hidden_size, 1)))
 
         # functional layers
         self.dpatch_conv = init_(nn.Linear(64, 128)) #depatch, merge the channels and encode them
@@ -369,7 +413,6 @@ class atariBase(IAMBase):
         hidden = torch.reshape(hidden_conv, ([-1,num_regions,shape[3]]))
         linear_conv = self.dpatch_conv(hidden)        
         linear_prehidden = self.dpatch_prehidden(rnn_hxs)
-        # print(linear_prehidden.size())
         context = self.dpatch_combine(linear_conv + torch.unsqueeze(linear_prehidden, 1))
         attention_weights = self.dpatch_weights(context)
         dpatch = torch.sum(attention_weights*hidden,dim=1)
@@ -379,14 +422,15 @@ class atariBase(IAMBase):
 
     def forward(self, inputs, rnn_hxs, masks):
         hidden_conv = self.cnn(inputs / 255.0)
-        # print(inputs.size())
+
         fnn_out = self.fnn(hidden_conv)
         inf_hidden = self.attention(hidden_conv, rnn_hxs)
         rnn_out, rnn_hxs = self._forward_gru(inf_hidden, rnn_hxs, masks)
 
         x = torch.cat((rnn_out,fnn_out), 1)
 
-        value = self.critic(x) 
-        action = self.actor(x)
+        hidden_critic = self.critic(x) 
+        hidden_actor = self.actor(x)
 
-        return value, action, rnn_hxs
+        return hidden_critic, hidden_actor, rnn_hxs
+        # return self.critic_linear(x), x, rnn_hxs
