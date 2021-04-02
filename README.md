@@ -51,11 +51,17 @@ To run flicker Atari 'BreakoutNoFrameskip-v4' without flickering, use:
 python main.py --env-name BreakoutNoFrameskip-v4 --num-processes 4 --num-env-steps 4000000 --num-steps 5 --log-dir ./log_fa/
 ```
 
+The result:
+
+![unknown](README.assets/unknown.png)
+
 To run flicker Atari 'BreakoutNoFrameskip-v4' with flickering, use:
 
 ```bash
 python main.py --env-name BreakoutNoFrameskip-v4 --num-processes 4 --num-env-steps 4000000 --num-steps 5 --log-dir ./log_fa/ --flicker
 ```
+
+For the result with flickering, we are still testing.
 
 ## Work
 

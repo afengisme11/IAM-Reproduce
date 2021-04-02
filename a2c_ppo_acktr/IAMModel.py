@@ -371,13 +371,21 @@ class atariBase(IAMBase):
         # self.critic_linear = \
         #             init_(nn.Linear(2*hidden_size, 1))
 
+        # self.actor = nn.Sequential(
+        #     init_(nn.Linear(2*hidden_size, 2*hidden_size)),nn.Tanh(),
+        #     init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
+        #     init_(nn.Linear(hidden_size, hidden_size)))
+
+        # self.critic = nn.Sequential(
+        #     init_(nn.Linear(2*hidden_size, 1)))
         self.actor = nn.Sequential(
-            init_(nn.Linear(2*hidden_size, 2*hidden_size)),nn.Tanh(),
             init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)))
+            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh())
 
         self.critic = nn.Sequential(
-            init_(nn.Linear(2*hidden_size, 1)))
+            init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
+            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh(),
+            init_(nn.Linear(hidden_size, 1)))
 
         # functional layers
         self.dpatch_conv = init_(nn.Linear(64, 128)) #depatch, merge the channels and encode them
