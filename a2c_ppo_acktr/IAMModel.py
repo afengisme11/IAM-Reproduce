@@ -225,7 +225,6 @@ class warehouseBase(IAMBase):
 
         # go through d_pathched reccurent network, update for one step
         if self.is_recurrent:
-            print(1)
             if self.is_IAM:
                 x_rec = self.manual_dpatch(x)
                 x_rec, rnn_hxs = self._forward_gru(x_rec, rnn_hxs, masks)
