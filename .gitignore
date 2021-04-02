@@ -1,6 +1,8 @@
-./__pycache__
-./.ipynb_checkpoints
-./configs
-experimentor.py.bak
-args.txt
-default_warehouse.yaml
+./__pycache__/
+./.ipynb_checkpoints/
+./.vscode/
+./log_fa/
+./log_tc/
+./log_w/
+default_a2c_args.txt
+default_wh_params.yaml
