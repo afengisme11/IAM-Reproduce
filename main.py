@@ -15,7 +15,6 @@ from a2c_ppo_acktr import algo, utils
 from a2c_ppo_acktr.algo import gail
 from a2c_ppo_acktr.arguments import get_args
 from a2c_ppo_acktr.envs import make_vec_envs
-from a2c_ppo_acktr.model import Policy
 from a2c_ppo_acktr.IAMModel import IAMPolicy
 from a2c_ppo_acktr.storage import RolloutStorage
 from evaluation import evaluate
@@ -58,17 +57,13 @@ def main():
 
     envs = make_vec_envs(args.env_name, args.seed, args.num_processes,
                          args.gamma, args.log_dir, device, False)
-    # print(envs.observation_space.shape)
-
-    # actor_critic = Policy(
-    #     envs.observation_space.shape,
-    #     envs.action_space,
-    #     base_kwargs={'recurrent': args.recurrent_policy})
+  
     actor_critic = IAMPolicy(
         envs.observation_space.shape,
         envs.action_space,
-        base_kwargs={'env_name': args.env_name}
-        )
+        args.env_name,
+        base_kwargs={'recurrent': args.recurrent_policy,
+                    'IAM': args.IAM})
     actor_critic.to(device)
 
     if args.algo == 'a2c':
@@ -125,12 +120,15 @@ def main():
     # ADDED: 
     # Store the mean reward value over processes with the frequency of log_mean_interval
     mean_episode_rewards = []
+    max_episode_rewards = []
     log_mean_interval = 10
 
     start = time.time()
     num_updates = int(
         args.num_env_steps) // args.num_steps // args.num_processes
+
     for j in range(num_updates):
+        # envs.render()
         if args.use_linear_lr_decay:
             # decrease learning rate linearly
             utils.update_linear_schedule(
@@ -229,10 +227,26 @@ def main():
         # ADDED:
         if j % log_mean_interval == 0 and len(episode_rewards) > 1:
             mean_episode_rewards.append(np.mean(episode_rewards))
+            max_episode_rewards.append(np.amax(episode_rewards))
+    
+    # ADDED:
+    if args.IAM:
+        log_mean_file = log_dir + 'mean_rewards_IAM.txt'
+        with open(log_mean_file, 'wb') as f:
+            pickle.dump(mean_episode_rewards, f)
+    elif args.recurrent_policy:
+        log_mean_file = log_dir + 'mean_rewards_GRU.txt'
+        with open(log_mean_file, 'wb') as f:
+            pickle.dump(mean_episode_rewards, f)
+    elif args.num_steps == 10:
+        log_mean_file = log_dir + 'mean_rewards_FNN1.txt'
+        with open(log_mean_file, 'wb') as f:
+            pickle.dump(mean_episode_rewards, f)
+    else:
+        log_mean_file = log_dir + 'mean_rewards_FNN8.txt'
+        with open(log_mean_file, 'wb') as f:
+            pickle.dump(mean_episode_rewards, f)
 
-    log_mean_file = log_dir + 'mean_rewards.txt'
-    with open(log_mean_file, 'wb') as f:
-        pickle.dump(mean_episode_rewards, f)
 
 if __name__ == "__main__":
     main()

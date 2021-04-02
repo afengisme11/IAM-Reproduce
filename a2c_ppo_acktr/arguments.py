@@ -115,12 +115,12 @@ def get_args():
     parser.add_argument(
         '--num-env-steps',
         type=int,
-        default=10e6,
+        default=4e6,
         help='number of environment steps to train (default: 10e6)')
     parser.add_argument(
         '--env-name',
-        default='PongNoFrameskip-v4',
-        help='environment to train on (default: PongNoFrameskip-v4)')
+        default='BreakoutNoFrameskip-v4',
+        help='environment to train on (default: atari)')
     parser.add_argument(
         '--log-dir',
         default='/tmp/gym/',
@@ -141,8 +141,8 @@ def get_args():
         help='compute returns taking into account time limits')
     parser.add_argument(
         '--recurrent-policy',
-        action='store_true',
-        default=False,
+        action='store_false',
+        default=True,
         help='use a recurrent policy')
     parser.add_argument(
         '--use-linear-lr-decay',
@@ -155,8 +155,12 @@ def get_args():
         action='store_true',
         default=False,
         help='Make the atari flickering')
+    parser.add_argument(
+        '--IAM',
+        action='store_true',
+        default=False,
+        help='Use the IAM structure')
 # END ADDED
-
     args = parser.parse_args()
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()

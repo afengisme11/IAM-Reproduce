@@ -1,5 +1,5 @@
 import os
-
+import math
 import gym
 import numpy as np
 import torch
@@ -13,9 +13,11 @@ from stable_baselines3.common.atari_wrappers import (ClipRewardEnv,
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import (DummyVecEnv, SubprocVecEnv,
                                               VecEnvWrapper)
+# from stable_baselines3.common.atari_wrappers import make_atari, wrap_deepmind
+# from stable_baselines3 import bench
 from stable_baselines3.common.vec_env.vec_normalize import \
     VecNormalize as VecNormalize_
-
+ 
 from environments.warehouse.warehouse import Warehouse
 from environments.sumo.LoopNetwork import LoopNetwork
 
@@ -49,7 +51,6 @@ def make_env(env_id, seed, rank, log_dir, allow_early_resets):
             parameters = dict(num_frames=1, scene = 'loop_network', max_steps = 2.0e+6, \
                 obs_type = 'vector', obs_size = 30, max_episode_steps = 250, \
                 summary_frequency = 5.0e+4, mode = 'train')
-            # parameters = dict(num_frames=1)
             env = LoopNetwork(parameters, seed)
         # END MODIFED
         else:

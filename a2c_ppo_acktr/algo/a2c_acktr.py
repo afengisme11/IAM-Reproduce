@@ -1,3 +1,11 @@
+'''
+Author: your name
+Date: 2021-03-25 21:52:42
+LastEditTime: 2021-03-31 20:26:28
+LastEditors: Please set LastEditors
+Description: In User Settings Edit
+FilePath: /origin/home/zheyu/Desktop/Deep_Learning/together/IAM-Reproduce/a2c_ppo_acktr/algo/a2c_acktr.py
+'''
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -35,17 +43,26 @@ class A2C_ACKTR():
         action_shape = rollouts.actions.size()[-1]
         num_steps, num_processes, _ = rollouts.rewards.size()
 
+        ## deliver all past hidden state to model
         values, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
-            rollouts.obs[:-1].view(-1, *obs_shape),
+            rollouts.obs[:-1].view(-1, *obs_shape), 
             rollouts.recurrent_hidden_states[:-1].view(
                 -1, self.actor_critic.recurrent_hidden_state_size),
             rollouts.masks[:-1].view(-1, 1),
             rollouts.actions.view(-1, action_shape))
 
+        # values, action_log_probs, dist_entropy, _ = self.actor_critic.evaluate_actions(
+        #     rollouts.obs[1:].view(-1, *obs_shape), 
+        #     rollouts.recurrent_hidden_states[:-1].view(
+        #         -1, self.actor_critic.recurrent_hidden_state_size),
+        #     rollouts.masks[1:].view(-1, 1),
+        #     rollouts.actions.view(-1, action_shape))
+
         values = values.view(num_steps, num_processes, 1)
         action_log_probs = action_log_probs.view(num_steps, num_processes, 1)
 
         advantages = rollouts.returns[:-1] - values
+        # advantages = rollouts.returns[1:] - values
         value_loss = advantages.pow(2).mean()
 
         action_loss = -(advantages.detach() * action_log_probs).mean()

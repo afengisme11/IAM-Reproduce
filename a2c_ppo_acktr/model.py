@@ -219,7 +219,6 @@ class MLPBase(NNBase):
 
     def forward(self, inputs, rnn_hxs, masks):
         x = inputs
-        print(inputs.shape)
 
         if self.is_recurrent:
             x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)

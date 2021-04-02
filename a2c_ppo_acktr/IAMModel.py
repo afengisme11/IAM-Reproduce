@@ -5,30 +5,38 @@ import torch.nn.functional as F
 
 from a2c_ppo_acktr.distributions import Bernoulli, Categorical, DiagGaussian
 from a2c_ppo_acktr.utils import init
-
+from a2c_ppo_acktr.arguments import get_args
 
 class Flatten(nn.Module):
     def forward(self, x):
         return x.view(x.size(0), -1)
 
 class IAMPolicy(nn.Module):
-    def __init__(self, obs_shape, action_space, base=None, base_kwargs=None):
+    def __init__(self, obs_shape, action_space, env, base=None, base_kwargs=None):
         super(IAMPolicy, self).__init__()
         if base_kwargs is None:
             base_kwargs = {}
         if base is None:
             if len(obs_shape) == 3:
-                base = IAMImageBase
+                hxs_size = 113
+                base = atariBase
             elif len(obs_shape) == 1:
-                if base_kwargs['env_name'] == 'warehouse':
-                    base = IAMWarehouseBase
-                elif base_kwargs['env_name'] == 'traffic':
-                    base = IAMTrafficBase
+                if env == 'warehouse':
+                    base = warehouseBase
+                    if base_kwargs['IAM']:
+                        hxs_size = 25
+                    else:
+                        hxs_size = 73
+                elif env == 'traffic':
+                    base = trafficBase
+                    if base_kwargs['IAM']:
+                        hxs_size = 4
+                    else:
+                        hxs_size = 30
             else:
                 raise NotImplementedError
 
-        # self.base = base(obs_shape[0], **base_kwargs)
-        self.base = base(obs_shape[0])
+        self.base = base(obs_shape[0], hxs_size, **base_kwargs)
 
         if action_space.__class__.__name__ == "Discrete":
             num_outputs = action_space.n
@@ -82,26 +90,40 @@ class IAMPolicy(nn.Module):
         return value, action_log_probs, dist_entropy, rnn_hxs
 
 class IAMBase(nn.Module):
-    """
-    Influence-Aware Memory archtecture
-
-    NOTE: Implement later as a base for different tasks
-    """
-    def __init__(self, num_predictors, hidden_size_gru):
+    def __init__(self, recurrent, IAM, recurrent_input_size, hidden_size):
         super(IAMBase, self).__init__()
 
-        self.gru = nn.GRU(num_predictors, hidden_size_gru)
-        for name, param in self.gru.named_parameters():
-            if 'bias' in name:
-                nn.init.constant_(param, 0)
-            elif 'weight' in name:
-                nn.init.orthogonal_(param)
-        
+        self._hidden_size = hidden_size
+        self._recurrent = recurrent
+        self._IAM = IAM
+
+        if recurrent:
+            self.gru = nn.GRU(recurrent_input_size, hidden_size)
+            for name, param in self.gru.named_parameters():
+                if 'bias' in name:
+                    nn.init.constant_(param, 0)
+                elif 'weight' in name:
+                    nn.init.orthogonal_(param)
+
     @property
     def is_recurrent(self):
-        return True
+        return self._recurrent
+    
+    @property
+    def is_IAM(self):
+        return self._IAM
 
-    def _forward_gru(self, x, hxs, masks):
+    @property
+    def recurrent_hidden_state_size(self):
+        if self._recurrent:
+            return self._hidden_size
+        return 1
+
+    @property
+    def output_size(self):
+        return self._hidden_size   
+
+    def _forward_gru(self, x, hxs, masks): 
         if x.size(0) == hxs.size(0):
             x, hxs = self.gru(x.unsqueeze(0), (hxs * masks).unsqueeze(0))
             x = x.squeeze(0)
@@ -158,195 +180,169 @@ class IAMBase(nn.Module):
 
         return x, hxs
 
-class IAMWarehouseBase(IAMBase):
-    """
-    IAM architecture for Warehouse environment
+class warehouseBase(IAMBase):
+    def __init__(self, num_inputs, hxs_size, recurrent=False, IAM=False, hidden_size=64):
+        super(warehouseBase, self).__init__(recurrent, IAM, hxs_size, hidden_size)
 
-    obs ->  |fnn |            ->|-> |nn  | ->critic_linear()->value
-            |____|              |   |____|
-                                |   
-        ->  |dset|  -> |gru | ->|-> |nn  | ->dist()->mode()/sample()->action 
-            |____|     |____|       |____|
-    
-    NOTE:
-    observation: (num_processes, num_inputs: 73 in warehouse)
-    fnn output: (num_processes, hidden_size_fnn)
-    dset output: (num_processes, 25)
-    gru output: ((num_processes, hidden_size_gru), rnn_hxs)
-    output_size:  hidden_size_fnn plus hidden_size_gru
-    """
-    def __init__(self, num_inputs, hidden_size=64):
-        super(IAMWarehouseBase, self).__init__(25, hidden_size)
-
-        self._hidden_size_gru = hidden_size
-        self._hidden_size_fnn = hidden_size
-        # NOTE the prior knowledge: 
-        # the hidden state does not depends on the position, thus manually 
-        # extracting the subset of the observation
-        self._dset = np.array([0, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 
-        61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72]).astype(int)
+        # Same attributes with original model
+        self.dset = [0, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,
+           63, 64, 65, 66, 67, 68, 69, 70, 71, 72]
 
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), np.sqrt(2))
 
-        self.fnn = nn.Sequential(
-            init_(nn.Linear(num_inputs, hidden_size)), nn.ReLU(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.ReLU(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.ReLU())
-
-        # self.critic_linear = \
-        #             init_(nn.Linear(self._hidden_size_fnn + self._hidden_size_gru, 1))
         self.actor = nn.Sequential(
-            init_(nn.Linear(2*hidden_size, 2*hidden_size)),nn.Tanh(),
-            init_(nn.Linear(2*hidden_size, 2*hidden_size)),nn.Tanh())
+            init_(nn.Linear(2*hidden_size, hidden_size)))
 
         self.critic = nn.Sequential(
-            init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh(),
+            init_(nn.Linear(2*hidden_size, 1)))
+
+        # self.actor_n = nn.Sequential(
+        #     init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh(),
+        #     init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh())
+
+        self.critic_n = nn.Sequential(
             init_(nn.Linear(hidden_size, 1)))
+
+        self.fnn = nn.Sequential(
+            init_(nn.Linear(num_inputs, 576)),nn.ReLU(),
+            init_(nn.Linear(576, 256)),nn.ReLU(),
+            init_(nn.Linear(256, hidden_size)),nn.ReLU())
 
         self.train()
 
-    @property
-    def recurrent_hidden_state_size(self):
-        return self._hidden_size_gru
+    def manual_dpatch(self, network_input):
+        """
+        inf_hidden is the input of reccurent net, dset is manually defined here and is static.
+        """
+        
+        inf_hidden = network_input[:, self.dset]
 
-    @property
-    def output_size(self):
-        return self._hidden_size_fnn + self._hidden_size_gru
+        return inf_hidden
 
     def forward(self, inputs, rnn_hxs, masks):
-        x = self.fnn(inputs)
+        x = inputs
+
+        # go through d_pathched reccurent network, update for one step
+        if self.is_recurrent:
+            print(1)
+            if self.is_IAM:
+                x_rec = self.manual_dpatch(x)
+                x_rec, rnn_hxs = self._forward_gru(x_rec, rnn_hxs, masks)
+                fnn_out = self.fnn(x)
+                x = torch.cat((x_rec,fnn_out), 1)
+            else:
+                x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
+        else:
+            x = self.fnn(x)
         
-        d_obs = self._dset_extraction(inputs)
-        d, rnn_hxs = self._forward_gru(d_obs, rnn_hxs, masks)
-
-        x = torch.cat((x, d), dim=1)
-
-        hidden_critic = self.critic(x)
-        hidden_actor = self.actor(x)
+        if self.is_IAM:
+            hidden_critic = self.critic(x)
+            hidden_actor = self.actor(x)
+        else:
+            hidden_critic = self.critic_n(x)
+            hidden_actor = x
 
         return hidden_critic, hidden_actor, rnn_hxs
 
-    def _dset_extraction(self, obs):
-        d_obs = obs[:, self._dset]
-        return d_obs
+class trafficBase(IAMBase):
+    def __init__(self, num_inputs, hxs_size, recurrent=False, IAM=False, hidden_size=8):
+        super(trafficBase, self).__init__(recurrent, IAM, hxs_size, hidden_size)
 
-class IAMTrafficBase(IAMBase):
-    """
-    IAM architecture for traffic control environment
-
-    obs ->  |fnn |            ->|-> |nn  | ->critic_linear()->value
-            |____|              |   |____|
-                                |   
-        ->  |dset|  -> |gru | ->|-> |nn  | ->dist()->mode()/sample()->action 
-            |____|     |____|       |____|
-
-    NOTE:
-        dset output: (num_processes, 4)
-    """
-    def __init__(self, num_inputs, hidden_size=64):
-        super(IAMTrafficBase, self).__init__(4, hidden_size)
-        self._hidden_size_gru = hidden_size
-        self._hidden_size_fnn = hidden_size
-
-        # NOTE the prior knowledge: 
-        self._dset = np.array([13, 14, 28, 29]).astype(int)
+        # Same attributes with original model
+        self.dset = [13, 14, 28, 29]
 
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
                                constant_(x, 0), np.sqrt(2))
 
-        self.fnn = nn.Sequential(
-            init_(nn.Linear(num_inputs, 4*hidden_size)),nn.ReLU(),
-            init_(nn.Linear(4*hidden_size, hidden_size)),nn.ReLU())
-
-        # self.critic_linear = \
-        #             init_(nn.Linear(self._hidden_size_fnn + self._hidden_size_gru, 1))
         self.actor = nn.Sequential(
-            init_(nn.Linear(2*hidden_size, 2*hidden_size)),nn.Tanh(),
-            init_(nn.Linear(2*hidden_size, 2*hidden_size)),nn.Tanh())
+            init_(nn.Linear(2*hidden_size, hidden_size)))
 
         self.critic = nn.Sequential(
-            init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
-            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh(),
+            init_(nn.Linear(2*hidden_size, 1)))
+
+        self.critic_n = nn.Sequential(
             init_(nn.Linear(hidden_size, 1)))
+
+        self.fnn = nn.Sequential(
+            init_(nn.Linear(num_inputs, 248)),nn.ReLU(),
+            init_(nn.Linear(248, 64)),nn.ReLU(),
+            init_(nn.Linear(64, hidden_size)),nn.ReLU())
 
         self.train()
 
-    @property
-    def recurrent_hidden_state_size(self):
-        return self._hidden_size_gru
+    def manual_dpatch(self, network_input):
+        """
+        inf_hidden is the input of reccurent net, dset is manually defined here and is static.
+        """
+        
+        inf_hidden = network_input[:, self.dset]
 
-    @property
-    def output_size(self):
-        return self._hidden_size_fnn + self._hidden_size_gru
+        return inf_hidden
 
     def forward(self, inputs, rnn_hxs, masks):
-        x = self.fnn(inputs)
+        x = inputs
+
+        if self.is_recurrent:
+            if self.is_IAM:
+                x_rec = self.manual_dpatch(x)
+                x_rec, rnn_hxs = self._forward_gru(x_rec, rnn_hxs, masks)
+                fnn_out = self.fnn(x)
+                x = torch.cat((x_rec,fnn_out), 1)
+            else:
+                x, rnn_hxs = self._forward_gru(x, rnn_hxs, masks)
+        else:
+            x = self.fnn(x)
         
-        d_obs = self._dset_extraction(inputs)
-        d, rnn_hxs = self._forward_gru(d_obs, rnn_hxs, masks)
-
-        x = torch.cat((x, d), dim=1)
-
-        hidden_critic = self.critic(x)
-        hidden_actor = self.actor(x)
+        if self.is_IAM:
+            hidden_critic = self.critic(x)
+            hidden_actor = self.actor(x)
+        else:
+            hidden_critic = self.critic_n(x)
+            hidden_actor = x
 
         return hidden_critic, hidden_actor, rnn_hxs
 
-    def _dset_extraction(self, obs):
-        d_obs = obs[:, self._dset]
-        return d_obs
-
-class IAMImageBase(IAMBase):
-    """
-    IAM architecture for image observed environment
-
-    obs -> |cnn | -> |-> flatten() -> |fnn |   ->|-> |nn  | ->critic_linear()->value
-           |____|    |                |____|     |   |____|
-                     |    |atte|                 |
-                     |->  |tion|   -> |gru |   ->|-> |nn  | ->dist()->mode()/sample()->action 
-                          |____|      |____|         |____|   
-    """
-    def __init__(self, num_inputs, hidden_size=128):
-        super(IAMImageBase, self).__init__(113, hidden_size)
+class atariBase(IAMBase):
+    def __init__(self, num_inputs, hxs_size, recurrent=False, IAM=False, hidden_size=128):
+        super(atariBase, self).__init__(recurrent, IAM, hxs_size, hidden_size)
+        self._depatch_size = hidden_size
 
         init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
-                               constant_(x, 0), np.sqrt(2))
-                               
-        self._hidden_size_gru = hidden_size
-        self._hidden_size_fnn = hidden_size
+                               constant_(x, 0), nn.init.calculate_gain('relu'))
 
         self.cnn = nn.Sequential(
             init_(nn.Conv2d(num_inputs, 32, 8, stride=4)), nn.ReLU(),
             init_(nn.Conv2d(32, 64, 4, stride=2)), nn.ReLU(),
             init_(nn.Conv2d(64, 64, 3, stride=1)), nn.ReLU())
+            # init_(nn.Linear(32 * 7 * 7, hidden_size)), nn.ReLU())
 
         self.fnn = nn.Sequential(
             Flatten(),
             init_(nn.Linear(64 * 7 * 7, hidden_size)), nn.ReLU(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.ReLU(),
-            init_(nn.Linear(hidden_size, hidden_size)), nn.ReLU())
+            init_(nn.Linear(hidden_size, hidden_size)),nn.ReLU(),
+            init_(nn.Linear(hidden_size, hidden_size)),nn.ReLU())
+        
 
-        self.critic_linear = \
-                    init_(nn.Linear(self._hidden_size_fnn + self._hidden_size_gru, 1))
+        init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
+                               constant_(x, 0), np.sqrt(2))
 
         self.actor = nn.Sequential(
-            init_(nn.Linear(2*hidden_size, 2*hidden_size)),nn.Tanh(),
-            init_(nn.Linear(2*hidden_size, 2*hidden_size)),nn.Tanh())
+            init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
+            init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh())
 
         self.critic = nn.Sequential(
             init_(nn.Linear(2*hidden_size, hidden_size)),nn.Tanh(),
             init_(nn.Linear(hidden_size, hidden_size)),nn.Tanh(),
             init_(nn.Linear(hidden_size, 1)))
 
-        # Layers for attention
+        # functional layers
         self.dpatch_conv = init_(nn.Linear(64, 128)) #depatch, merge the channels and encode them
 
-        # self.dpatch_auto = init_(nn.Linear(64, 128))
-        # self.dpatch_auto_norm = init_(nn.Linear(7*7*128, 128))
+        self.dpatch_auto = init_(nn.Linear(64, 128))
+        self.dpatch_auto_norm = init_(nn.Linear(7*7*128, 128))
 
-        self.dpatch_prehidden = init_(nn.Linear(self._hidden_size_gru, 128))
+        self.dpatch_prehidden = init_(nn.Linear(hidden_size, 128))
 
         self.dpatch_combine = nn.Tanh()
 
@@ -355,29 +351,16 @@ class IAMImageBase(IAMBase):
 
         self.train()
 
-    @property
-    def recurrent_hidden_state_size(self):
-        return self._hidden_size_gru
+    # def auto_depatch(self, hidden_conv):
+    #     hidden_conv = hidden_conv.permute(0,2,3,1)
+    #     shape = hidden_conv.size()
+    #     num_regions = shape[1]*shape[2]
+    #     hidden = torch.reshape(hidden_conv, ([-1,num_regions,shape[3]]))
+    #     inf_hidden = self.dpatch_auto(hidden)
+    #     hidden_size = inf_hidden.size()[1]*inf_hidden.size()[2]
+    #     inf_hidden = self.dpatch_auto_norm(torch.reshape(inf_hidden, shape=[-1, hidden_size]))
 
-    @property
-    def output_size(self):
-        return self._hidden_size_fnn + self._hidden_size_gru
-
-    def forward(self, inputs, rnn_hxs, masks):
-        hidden_conv = self.cnn(inputs / 255.0)
-
-        x = self.fnn(hidden_conv)
-
-        inf_hidden = self.attention(hidden_conv, rnn_hxs)
-        d, rnn_hxs = self._forward_gru(inf_hidden, rnn_hxs, masks)
-
-        x = torch.cat((x, d), dim=1)
-
-        hidden_critic = self.critic(x)
-        hidden_actor = self.actor(x)
-
-        return hidden_critic, hidden_actor, rnn_hxs
-        # return self.critic_linear(x), x, rnn_hxs
+    #     return inf_hidden
 
     def attention(self, hidden_conv, rnn_hxs):
         hidden_conv = hidden_conv.permute(0,2,3,1)
@@ -392,4 +375,18 @@ class IAMImageBase(IAMBase):
         dpatch = torch.sum(attention_weights*hidden,dim=1)
         inf_hidden = torch.cat((dpatch,torch.reshape(attention_weights, ([-1, num_regions]))), 1)
 
-        return inf_hidden
+        return inf_hidden   
+
+    def forward(self, inputs, rnn_hxs, masks):
+        hidden_conv = self.cnn(inputs / 255.0)
+        # print(inputs.size())
+        fnn_out = self.fnn(hidden_conv)
+        inf_hidden = self.attention(hidden_conv, rnn_hxs)
+        rnn_out, rnn_hxs = self._forward_gru(inf_hidden, rnn_hxs, masks)
+
+        x = torch.cat((rnn_out,fnn_out), 1)
+
+        value = self.critic(x) 
+        action = self.actor(x)
+
+        return value, action, rnn_hxs
