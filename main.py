@@ -147,7 +147,7 @@ def main():
 
             # ADDED
             if args.flicker:
-                prob_flicker = np.random.uniform(0, 1, (envs.observation_space.shape[0],))
+                prob_flicker = np.random.uniform(0, 1, (obs.shape[0],))
                 obs[prob_flicker > 0.5] = 0
             # END ADDED
 
