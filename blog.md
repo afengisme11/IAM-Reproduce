@@ -219,7 +219,7 @@ class atariBase(IAMBase):
     """
     IAM architecture for image observed environment
 
-    obs -> |cnn | -> |-> flatten() -> |fnn |   ->|-> |nn  | ->critic_linear()->value
+    obs -> |cnn | -> |-> flatten() -> |fnn |   ->|-> |nn  | ->value
            |____|    |                |____|     |   |____|
                      |    |atte|                 |
                      |->  |tion|   -> |gru |   ->|-> |nn  | ->dist()->mode()/sample()->action 
