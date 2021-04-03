@@ -5,5 +5,3 @@ log_fa/
 log_tc/
 log_w/
 trained_models/
-default_a2c_args.txt
-default_wh_params.yaml

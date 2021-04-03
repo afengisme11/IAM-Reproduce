@@ -189,7 +189,7 @@ class warehouseBase(IAMBase):
     """
     IAM architecture for Warehouse environment
 
-    obs ->  |fnn |            ->|-> |nn  | ->critic_linear()->value
+    obs ->  |fnn |            ->|-> |nn  | ->value
             |____|              |   |____|
                                 |   
         ->  |dset|  -> |gru | ->|-> |nn  | ->dist()->mode()/sample()->action 
@@ -269,7 +269,7 @@ class trafficBase(IAMBase):
     """
     IAM architecture for traffic control environment
 
-    obs ->  |fnn |            ->|-> |nn  | ->critic_linear()->value
+    obs ->  |fnn |            ->|-> |nn  | ->value
             |____|              |   |____|
                                 |   
         ->  |dset|  -> |gru | ->|-> |nn  | ->dist()->mode()/sample()->action 
@@ -339,7 +339,7 @@ class atariBase(IAMBase):
     """
     IAM architecture for image observed environment
 
-    obs -> |cnn | -> |-> flatten() -> |fnn |   ->|-> |nn  | ->critic_linear()->value
+    obs -> |cnn | -> |-> flatten() -> |fnn |   ->|-> |nn  | ->value
            |____|    |                |____|     |   |____|
                      |    |atte|                 |
                      |->  |tion|   -> |gru |   ->|-> |nn  | ->dist()->mode()/sample()->action 

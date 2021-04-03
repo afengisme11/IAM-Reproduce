@@ -1,3 +1,8 @@
+"""
+Manually check if the modification of the environment is successfully
+compatible with the gym
+"""
+
 from stable_baselines3.common.env_checker import check_env
 from environments.warehouse.warehouse import Warehouse
 import yaml
