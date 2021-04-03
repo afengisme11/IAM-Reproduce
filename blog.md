@@ -14,6 +14,7 @@ This blog has been submitted to https://reproducedpapers.org, which features a c
 
 # Introduction
 Perceptual limitations are inevitable in practical working scenarios. Thus, robots need the memory of the past experiences to uncover the hidden states and make better decisions. In recent deep reinforcement learning works, the observations of each step are all passed to the recurrent neural network (LSTM or GRU). In this way, many unnecessary features will also be memorized by the RNN, which significantly increase the training time as well as the difficulty to converge, especially for high dimensional inputs. A new method was proposed by Miguel Suau et al. As shown in the figure below, instead of passing all the observations to the RNN, we only need to pass those necessary ones. These are picked out by a D-operator which we will introduce later. In this way, less information needs to be delivered between two time steps. This will not only increase the computational efficiency, but also lead to better performance in a lot of tasks.
+
 ![Screenshot from 2021-04-02 20-22-07](blog.assets/Screenshot from 2021-04-02 20-22-07.png)
 
 ## Influence-aware memory (IAM)
@@ -128,7 +129,7 @@ class warehouseBase(IAMBase):
         self.train()
 ```
 
-In this scenario, the robot needs to fetch the items that appear with probability 0.05 on the shelves at the edges of the 7x7 grid representing a warehouse. The robot receives a reward of +1 every time it collects an item, which will get canceled if they are not collected before 8 timesteps since they appear. In the experiments we have a prior knowledge on what variables should be memorized. So the d-sets are manually selected, and the RNN in IAM only receives the latter variables while the FNN processes the entire vector. 
+In this scenario, the robot needs to fetch the items that appear with probability 0.05 on the shelves at the edges of the 7x7 grid representing a warehouse. The robot receives a reward of +1 every time it collects an item, which will get canceled if they are not collected before 8 time steps since they appear. In the experiments we have a prior knowledge on what variables should be memorized. So the d-sets are manually selected, and the RNN in IAM only receives the latter variables while the FNN processes the entire vector. 
 
 Here the FNN and two small nets for the action and value generation are defined. The observations are a combination of the agent’s location (one-hot encoded vector) and the 24 item binary variables. The d-set containing the indexes of the observation vector is defined, and to do the extraction, a simple indexing can be performed by:
 
@@ -211,7 +212,7 @@ class trafficBase(IAMBase):
 
 In a more complex working scenario, the input features that we want our algorithm to focus on may change rapidly over time. For example, in a 'Breakout' video game, what we want our algorithm to know is the location of the ball. However, it's changing rapidly and we cannot determine where the ball is for a specific time step without the knowledge of previous states. In such cases, attention mechanism should be used instead of manually selected d-set. Thus, we implemented it in the IAM structure to deal with such problems. 
 
-A new class is defined for this task which also inherits the recurrent function from class 'IAMBase'.  Additionally, a convolutional neural network is defined for image processing and a fully connected neural network is defined for the IAM. The entire structure of the neural network graph used in this case is also shown.
+A new class is defined for this task which also inherits the recurrent function from class 'IAMBase'.  Additionally, a convolution neural network is defined for image processing and a fully connected neural network is defined for the IAM. The entire structure of the neural network graph used in this case is also shown.
 
 ```python
 class atariBase(IAMBase):
@@ -307,21 +308,16 @@ def forward(self, inputs, rnn_hxs, masks):
         return hidden_critic, hidden_actor, rnn_hxs
 ```
 
-Moreover, for modify the Atari environment of Gym to flickering Atari, in the loop when performing the training, we add:
+Moreover, to modify the Atari environment of Gym to the flickering Atari, in the loop when performing the training, we add:
 
 ```python
-            obs, reward, done, infos = envs.step(action)
-            if args.flicker:
-                prob_flicker = np.random.uniform(0, 1, (obs.shape[0],))
-                obs[prob_flicker > 0.5] = 0
+obs, reward, done, infos = envs.step(action)
+if args.flicker:
+	prob_flicker = np.random.uniform(0, 1, (obs.shape[0],))
+	obs[prob_flicker > 0.5] = 0
 ```
 
 This randomly set each process's next observation to all zeros with a probability 0.5, thus convert the environment to flickering.
-
-
-
-
-
 
 
 # Experiment (plots and analysis)
