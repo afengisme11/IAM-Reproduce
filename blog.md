@@ -83,7 +83,7 @@ class IAMBase(nn.Module):
 
 In this base module, the GRU recurrent network in IAM is initialized. Note that the arguments `recurrent` and `IAM` are boolean variables of our use to switch architecture between IAM, plain GRU and FNN for subsequent experiments. Here for IAM they will be both manually set to True during the running time.
 
-## Warehouse
+## Working Scenario 1 - Warehouse
 
 ```python
 class warehouseBase(IAMBase):
@@ -170,7 +170,7 @@ Now we have all ingredients for the flow of the architecture, so the forward fun
 
 Recall that now in IAM the `self._recurrent` and `self.is_IAM` are both True. As illustrated in the paper, the input separately flows into FNN, and d-set extraction following with RNN. They then are concatenated, and allocated to the actor and critic net.
 
-## Traffic Control
+## Working Scenario 2 - Traffic Control
 
 In this environment, the agent must optimize the traffic flow at the intersection. The agent can take two different actions: either switching the traffic light on the top to green, which automatically turns the other to red, or vice versa. The observations are binary vectors that encode whether not there is a car at a particular location. Again, the d-set is manually selected, and the RNN in IAM receives the last two elements in each of the two vectors encoding the road segments (i.e. 4 bits in total). The network for this task can be defined below:
 
@@ -208,9 +208,9 @@ class trafficBase(IAMBase):
 
 
 
-## Working Scenario - Flickering Atari
+## Working Scenario 3 - Flickering Atari
 
-In a more complex working scenario, the input features that we want our algorithm to focus on may change rapidly over time. For example, in a 'Breakout' video game, what we want our algorithm to know is the location of the ball. However, it's changing rapidly and we cannot determine where the ball is for a specific time step without the knowledge of previous states. In such cases, attention mechanism should be used instead of manually selected d-set. Thus, we implemented it in the IAM structure to deal with such problems. 
+In a more complex working scenario, the input features that we want our algorithm to focus on may change rapidly over time. For example, in a 'Breakout' video game, what we want our algorithm to know is the location of the ball. However, it's changing rapidly and we cannot determine where the ball is for a specific time step without the knowledge of previous states. In such cases, attention mechanism should be used instead of manually selected d-set. Thus, we implemented it in the IAM structure to deal with such problems.  In this task, the robot will learn to play the 'Breakout' game. We first test it on the normal gym environment setting. Then we also try to make it work in the 'flickering atari' environment used in the paper.
 
 A new class is defined for this task which also inherits the recurrent function from class 'IAMBase'.  Additionally, a convolution neural network is defined for image processing and a fully connected neural network is defined for the IAM. The entire structure of the neural network graph used in this case is also shown.
 
