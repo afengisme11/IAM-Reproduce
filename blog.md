@@ -307,13 +307,16 @@ def forward(self, inputs, rnn_hxs, masks):
         return hidden_critic, hidden_actor, rnn_hxs
 ```
 
+Moreover, for modify the Atari environment of Gym to flickering Atari, in the loop when performing the training, we add:
 
+```python
+            obs, reward, done, infos = envs.step(action)
+            if args.flicker:
+                prob_flicker = np.random.uniform(0, 1, (obs.shape[0],))
+                obs[prob_flicker > 0.5] = 0
+```
 
-
-
-
-
-
+This randomly set each process's next observation to all zeros with a probability 0.5, thus convert the environment to flickering.
 
 
 
@@ -323,5 +326,24 @@ def forward(self, inputs, rnn_hxs, masks):
 
 # Experiment (plots and analysis)
 
+For the scenario in the warehouse and traffic control, we are aimed to reproduce and compare the result in Figure 5 of the paper:
+
+![Screenshot from 2021-04-02 23-52-44](blog.assets/Screenshot from 2021-04-02 23-52-44.png)
+
+Our result of the warehouse scenario(the upper-left plot in Figure 5):
+
+![Warehouse](blog.assets/Warehouse.png)
+
+Our result of the traffic control scenario(the bottom-left plot in Figure 5):
+
+![Traffic](blog.assets/Traffic.png)
+
+For the scenario of the Atari "BreakoutNoFrameskip-v4", we got:
+
+![unknown](blog.assets/unknown.png)
 
 # Summary (accomplishment, drawbacks, improvement)
+
+We performed our work highly based on the popular repository [pytorch-a2c-ppo-acktr-gail](https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail) for PyTorch implementation of Advantage Actor Critic (A2C) for deep reinforcement learning. Also by checking the source code of the author with the framework and hyperparameters, we are able to re-implement the architecture mainly based on the interpretation of the content in the Influence-Aware Memory(IAM) architecture's paper. Followed behind the idea of the paper, we construct the architecture(e.g., layers) and slightly tune hyperparameters by ourselves, and got comparable results such as the trends and limitation reward value of IAM.
+
+Overall, from the view of reproducibility, we would give the paper an 9/10 score. (Note that this is subjective and could vary heavily)

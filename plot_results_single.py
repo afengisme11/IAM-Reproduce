@@ -20,12 +20,12 @@ import pickle
 
 #COMMENT 
 # Plot manually stored mean rewards
-with open('./log_t/mean_rewards_GRU.txt', 'rb') as f:
+with open('./log_fa/mean_rewards_IAM.txt', 'rb') as f:
     mean_episode_rewards = pickle.load(f)
 
 mean_episode_rewards = np.array(mean_episode_rewards)
-# timesteps = HERE * mean_log_interval * processes * num_steps
-timesteps = np.arange(mean_episode_rewards.shape[0]) * 10 * 1 * 32/ 1e6
+# timesteps = HERE * mean_log_interval * processes * num_step
+timesteps = np.arange(mean_episode_rewards.shape[0]) * 10 * 16 * 32/ 1e6
 # print(timesteps.shape)
 
 # EWMA
