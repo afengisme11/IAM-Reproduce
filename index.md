@@ -1,3 +1,16 @@
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+    <script type="text/x-mathjax-config">
+        MathJax.Hub.Config({
+            tex2jax: {
+            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre'],
+            inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+            displayMath: [ ['$$','$$'], ["\\[","\\]"] ],
+            }
+        });
+    </script>
+</head>
+
 # Influence-aware Memory Architecture
 
 > Reproduce project of the paper "Influence-aware Memory Architectures for Deep Reinforcement Learning"[1]
