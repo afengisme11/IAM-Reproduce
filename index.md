@@ -13,7 +13,7 @@
 
 # Influence-aware Memory Architecture
 
-> Reproduce project of the paper "Influence-aware Memory Architectures for Deep Reinforcement Learning"[1]
+> Reproduce project of the paper "Influence-aware Memory Architectures for Deep Reinforcement Learning" (Suau et al., 2019)
 
 
 ## Authors
@@ -35,8 +35,6 @@ Q^*(h_t,a_t) = R(h_t,a_t) + \sum _{o_{t+1}}Pr(o_{t+1}|h_t,a_t)\max _{a_{t+1}}Q^*
 $$
 
 
-
-
 $h_t$ is the history of the history of the observations and actions at time step $t$. The optimal Q value of current step is based on the current reward and the optimal value of the next step.
 
 Applying IAM theory, we will replace the $h_t$ with $d_t$, which is a subset of $h_t$ satisfying the condition that the hidden variables $y_t$ and the remain-ing parts of the history $h_t / d_t$ are conditionally independent given $d_t$ (Bishop, 2006). We can rewrite the Bellman equation with $d_t$ and $o_t$.
@@ -45,16 +43,14 @@ Applying IAM theory, we will replace the $h_t$ with $d_t$, which is a subset of 
 $$
 Q^*(<d_t,o_t>,a_t) = R(<d_t,o_t>,a_t) + \sum _{o_{t+1}}Pr(o_{t+1}|<d_t,o_t>,a_t)\max _{a_{t+1}}Q^*(<d_{t+1},o_{t+1}>,a_{t+1})
 $$
-
-
 and $d_{t+1} \overset{\triangle}{=}  <d_t, D(o_{t+1})>$, where $D(*)$ is the d-set selection operator, which chooses the variables in $o_{t+1}$ that are added to $d_{t+1}$. There are several ways to define this operator, which we will discuss later.
 
 Based on this theory, the IAM network could be constructed. The FNN accepts all the observations, $x_t = F_{fnn}(o_t)$, and the RNN accepts only $D(o_t)$ and updates its hidden state, $d_t = F_{rnn}(d_{t-1}, D(o_t))$. Then the outputs of two networks are concatenated together and passed through two separate linear layers which compute $Q$ and $\pi$. The structure of the IAM network is also shown in the figure above.
 
 ###  Construction of d-sets
-The d-sets are extracted from observations by a $D()$ operator, $D_A(o_t) = Ao_t$. It's important that we should properly define the $D(*)$ operator so that necessary features could be extracted. Then how to make sure that a $D(*)$ operator is well defined? The answer is simple. We need to make sure that the $D(*)$ operator is suitable for the specific task we are doing. For example, when we want to track a bouncing ball, we want our $D(*)$ operator can precisely extract the observations around the ball. On the other hand, when we don't care about the movement of the ball, but we'd like to know the appearance of an object in a certain area, we will want our $D(*)$ operator to always extract the observations in that fixed area. Thus, the filter matrix $A$ should be computed differently depending on the nature of the problem.
+The d-sets are extracted from observations by a $D()$ operator, $D_A(o_t) = Ao_t$. It's important that we should properly define the $D()$ operator so that necessary features could be extracted. Then how to make sure that a $D()$ operator is well defined? The answer is simple. We need to make sure that the $D()$ operator is suitable for the specific task we are doing. For example, when we want to track a bouncing ball, we want our $D()$ operator can precisely extract the observations around the ball. On the other hand, when we don't care about the movement of the ball, but we'd like to know the appearance of an object in a certain area, we will want our $D()$ operator to always extract the observations in that fixed area. Thus, the filter matrix $A$ should be computed differently depending on the nature of the problem.
 
-To design an appropriate $D(*)$ operator, there are three method used in this paper: Manual d-patch, Automatic d-patch and Attention mechanism. We will discuss them in the sequel.
+To design an appropriate $D()$ operator, there are three method used in this paper: Manual d-patch, Automatic d-patch and Attention mechanism. We will discuss them in the sequel.
 
 #### Manual d-patch
 Manual d-patch relies on the prior knowledge of human experts. Before doing the task, we will evaluate the task and figure out which observation features should be passed to the RNN. Then we manually design the filter matrix $A$ and implement it in the IAM model.
@@ -367,4 +363,12 @@ Overall, from the view of reproducibility, we would give the paper an 9/10 score
 This blog has been submitted to https://reproducedpapers.org, and If you are interested, feel free to check it out!
 
 ## References
-[1] Suau, M., Congeduti, E., Starre, R., Czechowski, A., & Oliehoek, F. A. (2019). Influence-aware memory for deep reinforcement learning. arXiv preprint arXiv:1911.07643.
+Suau, M., Congeduti, E., Starre, R., Czechowski, A., & Oliehoek, F. A. (2019). Influence-aware memory for deep reinforcement learning. arXiv preprint arXiv:1911.07643.
+
+Xu, K., Ba, J., Kiros, R., Cho, K., Courville, A., Salakhudinov, R., Zemel, R., and Bengio, Y. Show, attend and tell:
+Neural image caption generation with visual attention. In Proc. of the 32nd International Conference on Machine learning, pp. 2048–2057, 2015.
+
+Luong, M.-T., Pham, H., and Manning, C. D. Effective approaches to attention-based neural machine translation.
+arXiv preprint arXiv:1508.04025, 2015.
+
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, Ł., and Polosukhin, I. Attention is all you need. In Advances in Neural Information Processing Systems 17, pp. 5998–6008, 2017.
