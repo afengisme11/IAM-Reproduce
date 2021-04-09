@@ -1,6 +1,6 @@
 # Influence-aware Memory Architecture
 
-Reproduce project of the IAM paper
+Reproduce project of the paper "Influence-aware Memory Architectures for Deep Reinforcement Learning" by Miguel Suau, et al.
 
 
 # Authors
@@ -58,7 +58,7 @@ The Influence-Aware Memory network architecture is shown in the left of Figure 2
 
 ![Screenshot from 2021-04-02 20-18-13](blog.assets/Screenshot from 2021-04-02 20-18-13.png)
 
-We implemented this work in Python 3, under the PyTorch framework. In this blog some code snippets will be pasted here for illustration. First, we defined a base class inherited from `nn.Module`(only the constructor function is shown to illustrate the workflow):
+We implemented this neural network structure in Python 3, under the PyTorch framework. In this blog, some code snippets will be pasted here for illustration. First, we defined a base class inherited from `nn.Module`(only the constructor function is shown to illustrate the workflow):
 ```python
 class IAMBase(nn.Module):
     """
@@ -322,24 +322,26 @@ This randomly set each process's next observation to all zeros with a probabilit
 
 # Experiment (plots and analysis)
 
-For the scenario in the warehouse and traffic control, we are aimed to reproduce and compare the result in Figure 5 of the paper:
+The neural networks are embedded in the A2C algorithm provided by [Ilya Kostrikov, et al.](https://github.com/ikostrikov) The configurations of the three test environments are from [Miguel Suau. ](https://github.com/INFLUENCEorg/influence-aware-memory/commits?author=miguelsuau)We made some adaption for the gym settings. For the scenarios of warehouse and traffic control, we aimed to reproduce and compare the result shown in Figure 5 of the paper. Multiple trials have been done for each scenario and the results are similar.
 
 ![Screenshot from 2021-04-02 23-52-44](blog.assets/Screenshot from 2021-04-02 23-52-44.png)
 
-Our result of the warehouse scenario(the upper-left plot in Figure 5):
+Our results of the warehouse scenario are shown below. Comparing with the upper-left plot in Figure 5, we can notice that the curves of IAM has the similar shape and trend. While in this case, our recurrent network and two FNNs have better performance than those in the original paper. This may due to the different settings of the neural networks (GRU and LSTM) and the different reinforcement algorithm (A2C and PPO). Anyway, our results can also prove the performance improvement by implementing IAM network structure.
 
 ![Warehouse](blog.assets/Warehouse.png)
 
-Our result of the traffic control scenario(the bottom-left plot in Figure 5):
+Our results of the traffic scenario are shown below. The results are similar to those in the bottom-left plot of Figure 5. The small differences of shapes may also caused by different settings of neural networks and RL algorithm. The converged rewards of all the four networks are a little lower than the original one. This is probably due to the number of processes we used (how many simulations are carried out at the same time). The original paper used 16 processes but we only used one. There was an error occurred when doing multi-processing, which we will try to fix in the future work. In general, our results also shows that the performance of IAM is much better than others in this case.
 
 ![Traffic](blog.assets/Traffic.png)
 
-For the scenario of the Atari "BreakoutNoFrameskip-v4", we got:
+For standard Atari "Breakout" game, our result shows the effectiveness of IAM structure in this kind of working scenarios. We cut off the learning at 4e6 time steps due to the time limit. We can see that the reward at this step is already very high and it's still increasing. Since there is no corresponding results in the original paper, we will only show our result of IAM here and won't make any comparison. The original paper also test the IAM structure on "Flickering Atari" scenarios. But we failed to get a comparable reproduction result up to now. We will continue in the future work.
 
 ![unknown](blog.assets/unknown.png)
 
 # Summary (accomplishment, drawbacks, improvement)
 
-We performed our work highly based on the popular repository [pytorch-a2c-ppo-acktr-gail](https://github.com/ikostrikov/pytorch-a2c-ppo-acktr-gail) for PyTorch implementation of Advantage Actor Critic (A2C) for deep reinforcement learning. Also by checking the source code of the author with the framework and hyperparameters, we are able to re-implement the architecture mainly based on the interpretation of the content in the Influence-Aware Memory(IAM) architecture's paper. Followed behind the idea of the paper, we construct the architecture(e.g., layers) and slightly tune hyperparameters by ourselves, and got comparable results such as the trends and limitation reward value of IAM.
+In this project, we successfully reproduced the main results shown in the paper "Influence-aware Memory Architectures for Deep Reinforcement Learning" by Miguel Suau, et al. We re-implement IAM, GRU and FNN neural networks mainly based on the interpretation of the content in the paper and tested them on the same working environments as the original paper did. The structures of neural networks and hyperparameters are a little different since the networks are built in a different framework (PyTorch). The results of 'warehouse' and 'traffic' environments show comparable results with those in the original paper and successfully prove the superiority of the IAM structure.
+
+There are still some work we haven't done yet. The multi-processing will fail in 'traffic' environments and the algorithm fails to reproduce the original results in the 'Flickering Atari' task. We will work on these problems in the future and also try to optimize the network structures and hyperparameters.
 
 Overall, from the view of reproducibility, we would give the paper an 9/10 score. (Note that this is subjective and could vary heavily)
