@@ -11,7 +11,7 @@
 ## Introduction
 Perceptual limitations are inevitable in practical working scenarios. Thus, robots need the memory of the past experiences to uncover the hidden states and make better decisions. In recent deep reinforcement learning works, the observations of each step are all passed to the recurrent neural network (LSTM or GRU). In this way, many unnecessary features will also be memorized by the RNN, which significantly increase the training time as well as the difficulty to converge, especially for high dimensional inputs. A new method was proposed by Miguel Suau et al. As shown in the figure below, instead of passing all the observations to the RNN, we only need to pass those necessary ones. These are picked out by a D-operator which we will introduce later. In this way, less information needs to be delivered between two time steps. This will not only increase the computational efficiency, but also lead to better performance in a lot of tasks.
 
-![Screenshot from 2021-04-02 20-22-07](blog.assets/Screenshot from 2021-04-02 20-22-07.png)
+![Screenshot from 2021-04-02 20-22-07](index.assets/fig3.png)
 
 ### Influence-aware memory (IAM)
 Knowing the idea is not enough. we will introduce how to describe the problems with the Influence-aware memory idea implemented theoretically. First, let's see the normal Bellman equation for POMDP. 
@@ -52,7 +52,7 @@ This method not only considers current observations, but also takes into conside
 ## Network Architecture
 The Influence-Aware Memory network architecture is shown in the left of Figure 2.
 
-![Screenshot from 2021-04-02 20-18-13](blog.assets/Screenshot from 2021-04-02 20-18-13.png)
+![Screenshot from 2021-04-02 20-18-13](index.assets/fig2.png)
 
 We implemented this neural network structure in Python 3, under the PyTorch framework. In this blog, some code snippets will be pasted here for illustration. First, we defined a base class inherited from `nn.Module`(only the constructor function is shown to illustrate the workflow):
 ```python
@@ -317,19 +317,19 @@ This randomly set each process's next observation to all zeros with a probabilit
 
 The neural networks are embedded in the A2C algorithm provided by [Ilya Kostrikov, et al.](https://github.com/ikostrikov) The configurations of the three test environments are from [Miguel Suau. ](https://github.com/INFLUENCEorg/influence-aware-memory/commits?author=miguelsuau)We made some adaption for the gym settings. For the scenarios of warehouse and traffic control, we aimed to reproduce and compare the result shown in Figure 5 of the paper. Multiple trials have been done for each scenario and the results are similar.
 
-![Screenshot from 2021-04-02 23-52-44](blog.assets/Screenshot from 2021-04-02 23-52-44.png)
+![Screenshot from 2021-04-02 23-52-44](index.assets/fig5.png)
 
 Our results of the warehouse scenario are shown below. Comparing with the upper-left plot in Figure 5, we can notice that the curves of IAM has the similar shape and trend. While in this case, our recurrent network and two FNNs have better performance than those in the original paper. This may due to the different settings of the neural networks (GRU and LSTM) and the different reinforcement algorithm (A2C and PPO). Anyway, our results can also prove the performance improvement by implementing IAM network structure.
 
-![Warehouse](blog.assets/Warehouse.png)
+![Warehouse](index.assets/Warehouse.png)
 
 Our results of the traffic scenario are shown below. The results are similar to those in the bottom-left plot of Figure 5. The small differences of shapes may also caused by different settings of neural networks and RL algorithm. The converged rewards of all the four networks are a little lower than the original one. This is probably due to the number of processes we used (how many simulations are carried out at the same time). The original paper used 16 processes but we only used one. There was an error occurred when doing multi-processing, which we will try to fix in the future work. In general, our results also shows that the performance of IAM is much better than others in this case.
 
-![Traffic](blog.assets/Traffic.png)
+![Traffic](index.assets/Traffic.png)
 
 For standard Atari "Breakout" game, our result shows the effectiveness of IAM structure in this kind of working scenarios. We cut off the learning at 4e6 time steps due to the time limit. We can see that the reward at this step is already very high and it's still increasing. Since there is no corresponding results in the original paper, we will only show our result of IAM here and won't make any comparison. The original paper also test the IAM structure on "Flickering Atari" scenarios. But we failed to get a comparable reproduction result up to now. We will continue in the future work.
 
-![unknown](blog.assets/unknown.png)
+![unknown](index.assets/unknown.png)
 
 ## Summary
 
