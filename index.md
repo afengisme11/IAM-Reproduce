@@ -13,7 +13,7 @@
 
 # Influence-aware Memory Architecture
 
-> Reproduce project of the paper "Influence-aware Memory Architectures for Deep Reinforcement Learning" (Suau et al., 2019)
+> Reproduce project of the paper "Influence-aware Memory Architectures for Deep Reinforcement Learning" ([Suau et al., 2019](https://arxiv.org/abs/1911.07643))
 
 
 ## Authors
@@ -362,7 +362,7 @@ Overall, from the view of reproducibility, we would give the paper an 9/10 score
 
 ## Remark
 
-This blog has been submitted to https://reproducedpapers.org, and If you are interested, feel free to check it out!
+This blog has been submitted to [https://reproducedpapers.org](https://reproducedpapers.org), and If you are interested, feel free to check it out!
 
 ## References
 Suau, M., Congeduti, E., Starre, R., Czechowski, A., & Oliehoek, F. A. (2019). Influence-aware memory for deep reinforcement learning. arXiv preprint arXiv:1911.07643.
