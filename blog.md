@@ -210,16 +210,16 @@ class trafficBase(IAMBase):
 
 ## Working Scenario 3 - Flickering Atari
 
-In a more complex working scenario, the input features that we want our algorithm to focus on may change rapidly over time. For example, in a 'Breakout' video game, what we want our algorithm to know is the location of the ball. However, it's changing rapidly and we cannot determine where the ball is for a specific time step without the knowledge of previous states. In such cases, attention mechanism should be used instead of manually selected d-set. Thus, we implemented it in the IAM structure to deal with such problems.  In this task, the robot will learn to play the 'Breakout' game. We first test it on the normal gym environment setting. Then we also try to make it work in the 'flickering atari' environment used in the paper.
+In a more complex working scenario, the input features that we want our algorithm to focus on may change rapidly over time. For example, in a "Breakout" video game, what we want our algorithm to know is the location of the ball. However, it's changing rapidly and we cannot determine where the ball is for a specific time step without the knowledge of previous states. In such cases, attention mechanism should be used instead of manually selected d-set. Thus, we implemented it in the IAM structure to deal with such problems.  In this task, the robot will learn to play the 'Breakout' game. We first test it on the normal gym environment setting. Then we also try to make it work in the "flickering atari" environment used in the paper.
 
-A new class is defined for this task which also inherits the recurrent function from class 'IAMBase'.  Additionally, a convolution neural network is defined for image processing and a fully connected neural network is defined for the IAM. The entire structure of the neural network graph used in this case is also shown.
+A new class is defined for this task which also inherits the recurrent function from class `IAMBase`.  Additionally, a convolution neural network is defined for image processing and a fully connected neural network is defined for the IAM. The entire structure of the neural network graph used in this case is also shown.
 
 ```python
 class atariBase(IAMBase):
     """
     IAM architecture for image observed environment
 
-    obs -> |cnn | -> |-> flatten() -> |fnn |   ->|-> |nn  | ->critic_linear()->value
+    obs -> |cnn | -> |-> flatten() -> |fnn |   ->|-> |nn  | ->value
            |____|    |                |____|     |   |____|
                      |    |atte|                 |
                      |->  |tion|   -> |gru |   ->|-> |nn  | ->dist()->mode()/sample()->action 
@@ -275,7 +275,7 @@ init_ = lambda m: init(m, nn.init.orthogonal_, lambda x: nn.init.
 
         self.train()
 ```
-Now we define the function for the attention mechanism, which is the most important part of our controller. This function takes two input. The 'hidden_conv' is the output of the convolution neural network and the 'rnn_hxs' is the hidden state of the recurrent neural network from the last time step. The new observation tensor will first be reshaped into [batch size, width, height, channels] and the dimensions of width and height will be merged into one which represents the regions on every channels of the input.  Next, the weights matrix of all the regions will be calculated from the combination of current input and past hidden state. Finally, the weight matrix is used to decide which regions of the input observations should be passed into the recurrent neural network at current time step. Intuitively speaking, our algorithm will learn where to look at according to the memory of the past states.
+Now we define the function for the attention mechanism, which is the most important part of our controller. This function takes two input. The `hidden_conv` is the output of the convolution neural network and the `rnn_hxs` is the hidden state of the recurrent neural network from the last time step. The new observation tensor will first be reshaped into [batch size, width, height, channels] and the dimensions of width and height will be merged into one which represents the regions on every channels of the input.  Next, the weights matrix of all the regions will be calculated from the combination of current input and past hidden state. Finally, the weight matrix is used to decide which regions of the input observations should be passed into the recurrent neural network at current time step. Intuitively speaking, our algorithm will learn where to look at according to the memory of the past states.
 ```python
 def attention(self, hidden_conv, rnn_hxs):
         hidden_conv = hidden_conv.permute(0,2,3,1)
